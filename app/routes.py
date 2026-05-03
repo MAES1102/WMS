@@ -1,0 +1,1201 @@
+import os
+import uuid
+from collections.abc import Generator
+
+from fastapi import APIRouter, Depends, HTTPException
+from fastapi.responses import HTMLResponse
+from pydantic import BaseModel
+from sqlalchemy import select
+from sqlalchemy.orm import Session
+
+from app.db import SessionLocal
+from app.engine.choreography import run_choreographed_workflow
+from app.engine.orchestrator import run_orchestrated_workflow
+from app.models import Task, User, Workflow, WorkflowRun
+
+execution_logs = []
+
+
+def log_event(entry):
+    if isinstance(entry, dict):
+        msg = "[{ts}] run={run} wf={wf} task={task} [{status}] {msg}".format(
+            ts=(entry.get("timestamp") or "")[:19],
+            run=(entry.get("run_id") or "")[:8],
+            wf=entry.get("workflow_id", ""),
+            task=entry.get("task_id", "?"),
+            status=entry.get("status", ""),
+            msg=entry.get("message", ""),
+        )
+    else:
+        msg = str(entry)
+    print(msg)
+    execution_logs.append(entry)
+    if len(execution_logs) > 100:
+        execution_logs.pop(0)
+
+router = APIRouter()
+
+
+def get_db() -> Generator[Session, None, None]:
+    db = SessionLocal()
+    try:
+        yield db
+    finally:
+        db.close()
+
+
+class UserCreate(BaseModel):
+    email: str
+    password: str
+
+
+class WorkflowCreate(BaseModel):
+    name: str
+    user_id: int
+
+
+class TaskCreate(BaseModel):
+    name: str
+    workflow_id: int
+    order: int
+
+
+@router.get("/test")
+async def test() -> dict[str, str]:
+    return {"status": "ok"}
+
+
+@router.get("/logs")
+def get_logs() -> dict:
+    return {"logs": execution_logs}
+
+
+@router.post("/users")
+def create_user(payload: UserCreate, db: Session = Depends(get_db)) -> dict:
+    user = User(email=payload.email, password=payload.password)
+    db.add(user)
+    db.commit()
+    db.refresh(user)
+    return {"id": user.id, "email": user.email}
+
+
+@router.get("/users")
+def list_users(db: Session = Depends(get_db)) -> list[dict]:
+    users = db.scalars(select(User)).all()
+    return [{"id": u.id, "email": u.email} for u in users]
+
+
+@router.post("/workflows")
+def create_workflow(
+    payload: WorkflowCreate, db: Session = Depends(get_db)
+) -> dict:
+    workflow = Workflow(name=payload.name, user_id=payload.user_id)
+    db.add(workflow)
+    db.commit()
+    db.refresh(workflow)
+    return {
+        "id": workflow.id,
+        "name": workflow.name,
+        "user_id": workflow.user_id,
+    }
+
+
+@router.get("/workflows")
+def list_workflows(db: Session = Depends(get_db)) -> list[dict]:
+    rows = db.scalars(select(Workflow)).all()
+    return [
+        {"id": w.id, "name": w.name, "user_id": w.user_id} for w in rows
+    ]
+
+
+@router.delete("/workflows/{workflow_id}")
+def delete_workflow(workflow_id: int, db: Session = Depends(get_db)) -> dict:
+    workflow = db.get(Workflow, workflow_id)
+    if not workflow:
+        raise HTTPException(status_code=404, detail="Workflow not found")
+
+    tasks = db.scalars(
+        select(Task).where(Task.workflow_id == workflow_id)
+    ).all()
+    for t in tasks:
+        db.delete(t)
+
+    db.delete(workflow)
+    db.commit()
+    return {"status": "deleted"}
+
+
+@router.post("/tasks")
+def create_task(payload: TaskCreate, db: Session = Depends(get_db)) -> dict:
+    existing = db.scalars(
+        select(Task).where(
+            Task.workflow_id == payload.workflow_id,
+            Task.order == payload.order,
+        )
+    ).first()
+    if existing:
+        raise HTTPException(
+            status_code=409,
+            detail="Task with this order already exists in this workflow",
+        )
+    task = Task(
+        name=payload.name,
+        workflow_id=payload.workflow_id,
+        order=payload.order,
+    )
+    db.add(task)
+    db.commit()
+    db.refresh(task)
+    return {
+        "id": task.id,
+        "name": task.name,
+        "workflow_id": task.workflow_id,
+        "order": task.order,
+        "status": task.status,
+    }
+
+
+@router.get("/tasks")
+def list_tasks(db: Session = Depends(get_db)) -> list[dict]:
+    rows = db.scalars(select(Task)).all()
+    return [
+        {
+            "id": t.id,
+            "name": t.name,
+            "workflow_id": t.workflow_id,
+            "order": t.order,
+            "status": t.status,
+            "started_at": t.started_at,
+            "finished_at": t.finished_at,
+            "duration_seconds": (
+                (t.finished_at - t.started_at).total_seconds()
+                if (t.started_at and t.finished_at)
+                else None
+            ),
+        }
+        for t in rows
+    ]
+
+
+@router.get("/tasks/{task_id}")
+def get_task(task_id: int, db: Session = Depends(get_db)) -> dict:
+    task = db.get(Task, task_id)
+    if task is None:
+        raise HTTPException(status_code=404, detail="Task not found")
+    return {
+        "id": task.id,
+        "name": task.name,
+        "workflow_id": task.workflow_id,
+        "order": task.order,
+        "status": task.status,
+        "started_at": task.started_at,
+        "finished_at": task.finished_at,
+        "duration_seconds": (
+            (task.finished_at - task.started_at).total_seconds()
+            if (task.started_at and task.finished_at)
+            else None
+        ),
+    }
+
+
+@router.delete("/tasks/{task_id}")
+def delete_task(task_id: int, db: Session = Depends(get_db)) -> dict:
+    task = db.get(Task, task_id)
+    if not task:
+        raise HTTPException(status_code=404, detail="Task not found")
+    workflow_id = task.workflow_id
+    db.delete(task)
+    db.commit()
+
+    tasks = db.scalars(
+        select(Task)
+        .where(Task.workflow_id == workflow_id)
+        .order_by(Task.order)
+    ).all()
+    for index, t in enumerate(tasks, start=1):
+        t.order = index
+    db.commit()
+    return {"status": "deleted"}
+
+
+@router.get("/workflows/{workflow_id}/status")
+def workflow_status(workflow_id: int, db: Session = Depends(get_db)) -> dict:
+    workflow = db.get(Workflow, workflow_id)
+    if workflow is None:
+        raise HTTPException(status_code=404, detail="Workflow not found")
+
+    tasks = (
+        db.scalars(select(Task).where(Task.workflow_id == workflow_id)).all()
+        or []
+    )
+    tasks_sorted = sorted(tasks, key=lambda t: t.order)
+
+    done_tasks = sum(1 for t in tasks_sorted if t.status == "DONE")
+    running_tasks = sum(1 for t in tasks_sorted if t.status == "RUNNING")
+    pending_tasks = sum(1 for t in tasks_sorted if t.status == "PENDING")
+
+    return {
+        "workflow": {
+            "id": workflow.id,
+            "name": workflow.name,
+            "user_id": workflow.user_id,
+        },
+        "summary": {
+            "total_tasks": len(tasks_sorted),
+            "done_tasks": done_tasks,
+            "pending_tasks": pending_tasks,
+            "running_tasks": running_tasks,
+        },
+        "tasks": [
+            {
+                "id": t.id,
+                "name": t.name,
+                "order": t.order,
+                "status": t.status,
+                "started_at": t.started_at,
+                "finished_at": t.finished_at,
+                "duration_seconds": (
+                    (t.finished_at - t.started_at).total_seconds()
+                    if (t.started_at and t.finished_at)
+                    else None
+                ),
+            }
+            for t in tasks_sorted
+        ],
+    }
+
+
+@router.get("/workflow_runs/{workflow_id}")
+def list_workflow_runs(
+    workflow_id: int, db: Session = Depends(get_db)
+) -> list[dict]:
+    rows = db.scalars(
+        select(WorkflowRun).where(WorkflowRun.workflow_id == workflow_id)
+    ).all()
+    return [
+        {
+            "id": r.id,
+            "workflow_id": r.workflow_id,
+            "mode": r.mode,
+            "status": r.status,
+            "started_at": r.started_at,
+            "finished_at": r.finished_at,
+        }
+        for r in rows
+    ]
+
+
+@router.post("/execute/{workflow_id}")
+def execute_workflow(
+    workflow_id: int, db: Session = Depends(get_db)
+) -> dict:
+    log_event("=== ORCHESTRATION MODE ===")
+    return run_orchestrated_workflow(workflow_id, db, log_event=log_event)
+
+
+@router.post("/execute_choreo/{workflow_id}")
+def execute_workflow_choreo(
+    workflow_id: int, db: Session = Depends(get_db)
+) -> dict:
+    log_event("=== CHOREOGRAPHY MODE ===")
+    return run_choreographed_workflow(workflow_id, db, log_event=log_event)
+
+
+_UI_PAGE = """<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Workflow Automation</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-indigo-950 text-slate-100 antialiased">
+  <div class="max-w-5xl mx-auto px-4 py-10 pb-16">
+    <header class="text-center mb-8">
+      <p class="text-indigo-400 text-sm font-semibold tracking-wide uppercase mb-2">Dashboard</p>
+      <h1 class="text-3xl sm:text-4xl font-bold text-white tracking-tight">Workflow System</h1>
+      <p class="text-slate-400 mt-3 text-sm max-w-lg mx-auto">Interactive execution view, timeline, and graph — filtered by your selected workflow.</p>
+    </header>
+
+    <section class="mb-8 rounded-xl border border-slate-700/50 bg-slate-900/70 shadow-xl p-6">
+      <h2 class="text-sm font-semibold text-slate-400 uppercase tracking-wider mb-4">Current context</h2>
+      <div class="grid sm:grid-cols-2 gap-6">
+        <div>
+          <label for="sel-current-user" class="block text-xs font-medium text-slate-400 mb-1">Current User</label>
+          <select id="sel-current-user" class="w-full rounded-lg bg-slate-800 border border-slate-600 px-3 py-2.5 text-sm text-white focus:outline-none focus:ring-2 focus:ring-indigo-500">
+            <option value="">Select user…</option>
+          </select>
+          <p id="ctx-user-line" class="mt-2 text-sm text-white font-medium"></p>
+        </div>
+        <div>
+          <label for="sel-workflow" class="block text-xs font-medium text-slate-400 mb-1">Current Workflow</label>
+          <select id="sel-workflow" class="w-full rounded-lg bg-slate-800 border border-slate-600 px-3 py-2.5 text-sm text-white focus:outline-none focus:ring-2 focus:ring-cyan-500">
+            <option value="">Select workflow…</option>
+          </select>
+          <p id="ctx-workflow-line" class="mt-2 text-sm text-slate-300"></p>
+        </div>
+      </div>
+      <p id="current-user-email" class="mt-4 text-xs text-slate-500 hidden"></p>
+      <p id="hint-user" class="hidden"></p>
+      <p id="hint-workflow" class="hidden"></p>
+    </section>
+
+    <div class="space-y-6">
+      <section class="rounded-xl bg-slate-900/60 border border-slate-700/50 shadow-xl p-6">
+        <h2 class="text-lg font-semibold text-white mb-4 flex items-center gap-2">
+          <span class="flex h-8 w-8 items-center justify-center rounded-lg bg-indigo-500/20 text-indigo-300 text-sm font-bold">1</span>
+          Create User
+        </h2>
+        <div class="space-y-3 max-w-md">
+          <input id="u-email" type="email" placeholder="Email" class="w-full rounded-lg bg-slate-800/80 border border-slate-600 px-4 py-2.5 text-sm text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+          <input id="u-password" type="password" placeholder="Password" class="w-full rounded-lg bg-slate-800/80 border border-slate-600 px-4 py-2.5 text-sm text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+          <button type="button" id="btn-user" class="rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white font-medium py-2.5 px-4 text-sm transition">Create User</button>
+        </div>
+      </section>
+
+      <section class="rounded-xl bg-slate-900/60 border border-slate-700/50 shadow-xl p-6">
+        <h2 class="text-lg font-semibold text-white mb-4 flex items-center gap-2">
+          <span class="flex h-8 w-8 items-center justify-center rounded-lg bg-violet-500/20 text-violet-300 text-sm font-bold">2</span>
+          Create Workflow
+        </h2>
+        <p class="text-xs text-slate-400 mb-3">Uses the <strong class="text-slate-300">current user</strong> above.</p>
+        <div class="space-y-3 max-w-md">
+          <input id="w-name" type="text" placeholder="Workflow name" class="w-full rounded-lg bg-slate-800/80 border border-slate-600 px-4 py-2.5 text-sm text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-violet-500" />
+          <button type="button" id="btn-workflow" class="rounded-lg bg-violet-600 hover:bg-violet-500 text-white font-medium py-2.5 px-4 text-sm transition">Create Workflow</button>
+        </div>
+      </section>
+
+      <section class="rounded-xl bg-slate-900/60 border border-slate-700/50 shadow-xl p-6">
+        <h2 class="text-lg font-semibold text-white mb-4 flex items-center gap-2">
+          <span class="flex h-8 w-8 items-center justify-center rounded-lg bg-cyan-500/20 text-cyan-300 text-sm font-bold">3</span>
+          Create Task
+        </h2>
+        <p class="text-xs text-slate-400 mb-3">Tasks attach to the <strong class="text-slate-300">current workflow</strong>.</p>
+        <div class="space-y-3 max-w-md">
+          <input id="t-name" type="text" placeholder="Task name" class="w-full rounded-lg bg-slate-800/80 border border-slate-600 px-4 py-2.5 text-sm text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-cyan-500" />
+          <input id="t-order" type="number" min="0" placeholder="Order" class="w-full rounded-lg bg-slate-800/80 border border-slate-600 px-4 py-2.5 text-sm text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-cyan-500" />
+          <button type="button" id="btn-task" class="rounded-lg bg-cyan-600 hover:bg-cyan-500 text-white font-medium py-2.5 px-4 text-sm transition">Create Task</button>
+        </div>
+      </section>
+
+      <section class="rounded-xl bg-slate-900/60 border border-slate-700/50 shadow-xl p-6">
+        <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-4">
+          <h2 class="text-lg font-semibold text-white flex items-center gap-2">
+            <span class="flex h-8 w-8 items-center justify-center rounded-lg bg-emerald-500/20 text-emerald-300 text-sm font-bold">4</span>
+            Tasks <span class="text-slate-400 text-sm font-normal">(current workflow)</span>
+          </h2>
+          <button type="button" id="btn-refresh-tasks" class="shrink-0 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-medium py-2 px-4 text-sm transition">Refresh</button>
+        </div>
+        <div class="overflow-x-auto rounded-lg border border-slate-700">
+          <table class="min-w-full text-left text-sm">
+            <thead>
+              <tr class="border-b border-slate-600 bg-slate-800/80">
+                <th class="px-3 py-3 font-semibold text-slate-300 whitespace-nowrap">ID</th>
+                <th class="px-3 py-3 font-semibold text-slate-300 whitespace-nowrap">Name</th>
+                <th class="px-3 py-3 font-semibold text-slate-300 whitespace-nowrap">Order</th>
+                <th class="px-3 py-3 font-semibold text-slate-300 whitespace-nowrap">Status</th>
+                <th class="px-3 py-3 font-semibold text-slate-300 whitespace-nowrap">Actions</th>
+              </tr>
+            </thead>
+            <tbody id="tasks-body" class="divide-y divide-slate-700/60"></tbody>
+          </table>
+        </div>
+      </section>
+
+      <section class="rounded-xl bg-slate-900/60 border border-slate-700/50 shadow-xl p-6">
+        <h2 class="text-lg font-semibold text-white mb-2 flex items-center gap-2">
+          <span class="flex h-8 w-8 items-center justify-center rounded-lg bg-teal-500/20 text-teal-300 text-sm font-bold">5</span>
+          Live execution
+        </h2>
+        <p class="text-xs text-slate-400 mb-4">Timeline, progress, and graph update during polling (every 1s while a run is active).</p>
+        <h3 class="text-sm font-medium text-slate-300 mb-2">Execution Timeline</h3>
+        <div id="timeline" class="bg-black text-sm p-4 rounded-xl h-60 overflow-y-auto font-mono"></div>
+        <h3 class="text-sm font-medium text-slate-300 mt-6 mb-1">Event Stream</h3>
+        <p class="text-xs text-slate-500 mb-2">Simulated Kafka Event Stream</p>
+        <div id="eventStream" class="bg-black text-xs p-4 rounded-xl h-60 overflow-y-auto"></div>
+        <h3 class="text-sm font-medium text-slate-300 mt-6 mb-2">Backend Logs</h3>
+        <div id="logs" class="bg-black text-xs p-4 rounded-xl h-60 overflow-y-auto font-mono"></div>
+        <div class="w-full bg-gray-700 rounded-full h-4 mt-4">
+          <div id="progressBar" class="bg-green-500 h-4 rounded-full transition-all duration-300 ease-out" style="width:0%"></div>
+        </div>
+        <p id="progressLabel" class="text-xs text-slate-500 mt-2">0 / 0 tasks done</p>
+        <h3 class="text-sm font-medium text-slate-300 mt-6 mb-2">Workflow graph</h3>
+        <div class="w-full overflow-x-auto">
+          <canvas id="graphCanvas" width="600" height="200" class="mt-2 bg-gray-900 rounded-xl max-w-full h-auto"></canvas>
+        </div>
+      </section>
+
+      <section class="rounded-xl bg-slate-900/60 border border-slate-700/50 shadow-xl p-6">
+        <h2 class="text-lg font-semibold text-white mb-2 flex items-center gap-2">
+          <span class="flex h-8 w-8 items-center justify-center rounded-lg bg-fuchsia-500/20 text-fuchsia-300 text-sm font-bold">6</span>
+          System Architecture
+        </h2>
+        <p class="text-xs text-slate-400 mb-1 text-center">Microservices view (simulated states during execution)</p>
+        <div id="architecture" class="mt-6 p-6 bg-gray-900 rounded-xl text-center text-sm">
+          <div class="flex flex-col items-stretch gap-1 max-w-md mx-auto">
+            <div id="arch-user" class="arch-box w-full px-4 py-3 rounded-xl border transition-colors duration-300 bg-slate-800 border-slate-600 text-slate-300">
+              <div class="font-semibold">User</div>
+              <div class="text-xs mt-1 text-slate-400"><span data-arch-status>IDLE</span></div>
+            </div>
+            <div class="text-slate-500 py-0.5 text-center select-none">↓</div>
+            <div id="arch-gateway" class="arch-box w-full px-4 py-3 rounded-xl border transition-colors duration-300 bg-slate-800 border-slate-600 text-slate-300">
+              <div class="font-semibold">API Gateway</div>
+              <div class="text-xs mt-1 text-slate-400"><span data-arch-status>IDLE</span> · <span class="text-slate-500">REST</span></div>
+            </div>
+            <div class="text-slate-500 py-0.5 text-center select-none">↓</div>
+            <div id="arch-workflow" class="arch-box w-full px-4 py-3 rounded-xl border transition-colors duration-300 bg-slate-800 border-slate-600 text-slate-300">
+              <div class="font-semibold">Workflow Service</div>
+              <div class="text-xs mt-1 text-slate-400"><span data-arch-status>IDLE</span> · <span class="text-slate-500">REST</span></div>
+            </div>
+            <div class="text-slate-500 py-0.5 text-center select-none">↓</div>
+            <div id="arch-task" class="arch-box w-full px-4 py-3 rounded-xl border transition-colors duration-300 bg-slate-800 border-slate-600 text-slate-300">
+              <div class="font-semibold">Task Service</div>
+              <div class="text-xs mt-1 text-slate-400"><span data-arch-status>IDLE</span></div>
+            </div>
+            <div class="text-slate-500 py-0.5 text-center select-none">↓</div>
+            <div id="arch-event" class="arch-box w-full px-4 py-3 rounded-xl border transition-colors duration-300 bg-slate-800 border-slate-600 text-slate-300">
+              <div class="font-semibold">Event Service (Kafka)</div>
+              <div class="text-xs mt-1 text-slate-400"><span data-arch-status>IDLE</span> · <span class="text-slate-500">Events</span></div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="rounded-xl bg-slate-900/60 border border-slate-700/50 shadow-xl p-6">
+        <h2 class="text-lg font-semibold text-white mb-4 flex items-center gap-2">
+          <span class="flex h-8 w-8 items-center justify-center rounded-lg bg-amber-500/20 text-amber-300 text-sm font-bold">7</span>
+          Execute
+        </h2>
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 max-w-xl">
+          <button type="button" id="btn-orch" class="rounded-lg bg-amber-600 hover:bg-amber-500 text-white font-medium py-2.5 px-4 text-sm transition shadow-lg">Run Orchestration</button>
+          <button type="button" id="btn-choreo" class="rounded-lg bg-slate-700 hover:bg-slate-600 border border-slate-600 text-white font-medium py-2.5 px-4 text-sm transition">Run Choreography</button>
+        </div>
+      </section>
+
+      <section class="rounded-xl bg-slate-900/60 border border-slate-700/50 shadow-xl p-6">
+        <div class="flex items-center justify-between mb-3">
+          <h2 class="text-lg font-semibold text-white flex items-center gap-2">
+            <span class="flex h-8 w-8 items-center justify-center rounded-lg bg-orange-500/20 text-orange-300 text-sm font-bold">8</span>
+            Execution Log
+          </h2>
+          <button type="button" id="btn-clear-exec-log" class="text-xs text-slate-400 hover:text-white underline">Clear</button>
+        </div>
+        <div id="exec-log" class="min-h-[12rem] max-h-64 overflow-y-auto rounded-lg bg-slate-950/80 border border-slate-700 p-4 font-mono text-sm text-slate-200"></div>
+      </section>
+
+      <section class="rounded-xl bg-slate-900/60 border border-slate-700/50 shadow-xl p-6">
+        <div class="flex items-center justify-between mb-3">
+          <h2 class="text-lg font-semibold text-white flex items-center gap-2">
+            <span class="flex h-8 w-8 items-center justify-center rounded-lg bg-slate-600 text-slate-200 text-sm font-bold">9</span>
+            Output / Logs
+          </h2>
+          <button type="button" id="btn-clear-log" class="text-xs text-slate-400 hover:text-white underline">Clear</button>
+        </div>
+        <div id="log" class="h-48 overflow-y-auto rounded-lg bg-slate-950/80 border border-slate-700 p-4 font-mono text-xs text-slate-300"></div>
+      </section>
+    </div>
+  </div>
+
+  <script>
+  (function () {
+    var logEl = document.getElementById("log");
+    var execLogEl = document.getElementById("exec-log");
+    var selUser = document.getElementById("sel-current-user");
+    var selWorkflow = document.getElementById("sel-workflow");
+    var ctxUserLine = document.getElementById("ctx-user-line");
+    var ctxWorkflowLine = document.getElementById("ctx-workflow-line");
+    var timelineEl = document.getElementById("timeline");
+    var progressBar = document.getElementById("progressBar");
+    var progressLabel = document.getElementById("progressLabel");
+    var graphCanvas = document.getElementById("graphCanvas");
+
+    var lastStatuses = {};
+    var timelinePollId = null;
+    var timelineWorkflowId = null;
+    let activeService = null;
+
+    var ARCH_IDS = ["arch-user", "arch-gateway", "arch-workflow", "arch-task", "arch-event"];
+
+    function updateArchBox(elId, mode) {
+      var el = document.getElementById(elId);
+      if (!el) return;
+      var modes = {
+        idle: "bg-slate-800 border-slate-600 text-slate-300",
+        active: "bg-amber-900/40 border-amber-500 text-amber-100",
+        done: "bg-emerald-900/40 border-emerald-500 text-emerald-100",
+      };
+      el.className =
+        "arch-box w-full px-4 py-3 rounded-xl border transition-colors duration-300 " +
+        (modes[mode] || modes.idle);
+      var sp = el.querySelector("[data-arch-status]");
+      if (sp) {
+        sp.textContent =
+          mode === "idle" ? "IDLE" : mode === "active" ? "ACTIVE" : "DONE";
+      }
+    }
+
+    function archResetAllIdle() {
+      ARCH_IDS.forEach(function (id) {
+        updateArchBox(id, "idle");
+      });
+      activeService = null;
+    }
+
+    function archAllDone() {
+      ARCH_IDS.forEach(function (id) {
+        updateArchBox(id, "done");
+      });
+      activeService = null;
+    }
+
+    function archOnExecutionStart() {
+      archResetAllIdle();
+      updateArchBox("arch-user", "active");
+      updateArchBox("arch-gateway", "active");
+      updateArchBox("arch-workflow", "active");
+      activeService = "gateway";
+    }
+
+    function getCurrentWorkflowId() {
+      var id = parseInt(selWorkflow.value, 10);
+      return Number.isFinite(id) ? id : null;
+    }
+
+    function filterTasksForWorkflow(all, wfId) {
+      if (wfId == null) return [];
+      return (all || []).filter(function (t) {
+        return Number(t.workflow_id) === Number(wfId);
+      });
+    }
+
+    function formatTimelineTime() {
+      var d = new Date();
+      var h = String(d.getHours()).padStart(2, "0");
+      var m = String(d.getMinutes()).padStart(2, "0");
+      var s = String(d.getSeconds()).padStart(2, "0");
+      return h + ":" + m + ":" + s;
+    }
+
+    function statusTextClass(st) {
+      if (st === "RUNNING") return "text-yellow-400";
+      if (st === "DONE") return "text-green-400";
+      return "text-gray-400";
+    }
+
+    function logTimelineLine(taskName, status) {
+      var row = document.createElement("div");
+      row.className = "py-1 border-b border-gray-800/80 flex flex-wrap items-baseline gap-x-1";
+      var time = document.createElement("span");
+      time.className = "text-gray-500";
+      time.textContent = "[" + formatTimelineTime() + "]";
+      var mid = document.createElement("span");
+      mid.className = "text-gray-300";
+      mid.textContent = " " + taskName + " → ";
+      var st = document.createElement("span");
+      st.className = statusTextClass(status);
+      st.textContent = status;
+      row.appendChild(time);
+      row.appendChild(mid);
+      row.appendChild(st);
+      timelineEl.appendChild(row);
+      timelineEl.scrollTop = timelineEl.scrollHeight;
+    }
+
+    function logEvent(message) {
+      var el = document.createElement("div");
+      el.className = "text-blue-400";
+      el.textContent = "[" + new Date().toLocaleTimeString() + "] " + message;
+      var container = document.getElementById("eventStream");
+      container.appendChild(el);
+      container.scrollTop = container.scrollHeight;
+    }
+
+    function stopTimelinePolling() {
+      if (timelinePollId !== null) {
+        clearInterval(timelinePollId);
+        timelinePollId = null;
+      }
+      timelineWorkflowId = null;
+    }
+
+    function startTimelinePolling(workflowId) {
+      stopTimelinePolling();
+      lastStatuses = {};
+      timelineEl.innerHTML = "";
+      document.getElementById("eventStream").innerHTML = "";
+      archOnExecutionStart();
+      timelineWorkflowId = workflowId;
+      pollTasksLoop();
+      timelinePollId = setInterval(pollTasksLoop, 1000);
+    }
+
+    function updateProgressBar(tasks) {
+      if (!tasks.length) {
+        progressBar.style.width = "0%";
+        progressLabel.textContent = "No tasks for this workflow";
+        return;
+      }
+      var done = tasks.filter(function (t) { return t.status === "DONE"; }).length;
+      var pct = Math.round((done / tasks.length) * 100);
+      progressBar.style.width = pct + "%";
+      progressLabel.textContent = done + " / " + tasks.length + " tasks done";
+    }
+
+    function drawGraph(tasks) {
+      var ctx = graphCanvas.getContext("2d");
+      var w = 600;
+      var h = 200;
+      var dpr = window.devicePixelRatio || 1;
+      graphCanvas.width = w * dpr;
+      graphCanvas.height = h * dpr;
+      graphCanvas.style.width = w + "px";
+      graphCanvas.style.height = h + "px";
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      ctx.fillStyle = "#111827";
+      ctx.fillRect(0, 0, w, h);
+      var sorted = tasks.slice().sort(function (a, b) { return a.order - b.order; });
+      if (!sorted.length) {
+        ctx.fillStyle = "#6b7280";
+        ctx.font = "14px system-ui,sans-serif";
+        ctx.textAlign = "center";
+        ctx.fillText("No tasks — select a workflow or add tasks", w / 2, h / 2);
+        return;
+      }
+      function fillFor(st) {
+        if (st === "RUNNING") return "#eab308";
+        if (st === "DONE") return "#22c55e";
+        return "#9ca3af";
+      }
+      var margin = 48;
+      var inner = w - margin * 2;
+      var cy = h / 2;
+      var r = 16;
+      var n = sorted.length;
+      var xs = [];
+      var i;
+      if (n === 1) xs.push(w / 2);
+      else for (i = 0; i < n; i++) xs.push(margin + (inner * i) / (n - 1));
+      ctx.strokeStyle = "#4b5563";
+      ctx.lineWidth = 2;
+      for (i = 0; i < n - 1; i++) {
+        ctx.beginPath();
+        ctx.moveTo(xs[i], cy);
+        ctx.lineTo(xs[i + 1], cy);
+        ctx.stroke();
+      }
+      for (i = 0; i < n; i++) {
+        var t = sorted[i];
+        ctx.beginPath();
+        ctx.arc(xs[i], cy, r, 0, Math.PI * 2);
+        ctx.fillStyle = fillFor(t.status);
+        ctx.fill();
+        ctx.strokeStyle = "#1f2937";
+        ctx.lineWidth = 2;
+        ctx.stroke();
+        ctx.fillStyle = "#f3f4f6";
+        ctx.font = "11px system-ui,sans-serif";
+        ctx.textAlign = "center";
+        var nm = t.name.length > 14 ? t.name.slice(0, 12) + "…" : t.name;
+        ctx.fillText(nm, xs[i], cy + r + 18);
+      }
+    }
+
+    function applyDashboardFromTasks(allTasks) {
+      var wfId = getCurrentWorkflowId();
+      var ft = filterTasksForWorkflow(allTasks, wfId);
+      renderTasks(ft, wfId);
+      updateProgressBar(ft);
+      drawGraph(ft);
+    }
+
+    async function pollTasksLoop() {
+      var wid = timelineWorkflowId;
+      if (wid == null) return;
+      try {
+        var res = await fetch("/tasks");
+        var text = await res.text();
+        var data;
+        try { data = JSON.parse(text); } catch (e) { data = []; }
+        if (!res.ok) return;
+        var all = Array.isArray(data) ? data : [];
+        var tasks = filterTasksForWorkflow(all, wid);
+        tasks.sort(function (a, b) { return a.order - b.order; });
+        if (!tasks.length) {
+          stopTimelinePolling();
+          archResetAllIdle();
+          timelineEl.innerHTML = '<div class="text-gray-500">No tasks for this workflow.</div>';
+          updateProgressBar([]);
+          drawGraph([]);
+          return;
+        }
+        tasks.forEach(function (t) {
+          var key = String(t.id);
+          var prev = Object.prototype.hasOwnProperty.call(lastStatuses, key) ? lastStatuses[key] : undefined;
+          if (prev !== undefined && prev !== t.status) {
+            logTimelineLine(t.name, t.status);
+            if (t.status === "RUNNING") {
+              logEvent("task_started → " + t.name);
+              updateArchBox("arch-task", "active");
+              updateArchBox("arch-event", "active");
+              activeService = "task";
+            } else if (t.status === "DONE") {
+              logEvent("task_completed → " + t.name);
+              updateArchBox("arch-event", "active");
+              activeService = "event";
+            }
+          }
+          lastStatuses[key] = t.status;
+        });
+        updateProgressBar(tasks);
+        drawGraph(tasks);
+        var allDone = tasks.every(function (t) { return t.status === "DONE"; });
+        if (allDone) stopTimelinePolling();
+      } catch (e) {}
+    }
+
+    function log(message, kind) {
+      kind = kind || "info";
+      var line = document.createElement("div");
+      line.className = "py-1.5 border-b border-slate-800/80 last:border-0 " + (kind === "error" ? "text-red-400" : kind === "ok" ? "text-emerald-400" : "text-slate-400");
+      line.textContent = "[" + new Date().toLocaleTimeString() + "] " + message;
+      logEl.appendChild(line);
+      logEl.scrollTop = logEl.scrollHeight;
+    }
+
+    function logExec(message) {
+      var line = document.createElement("div");
+      line.className = "py-1 border-b border-slate-800/60 text-slate-200";
+      line.textContent = "[" + new Date().toLocaleTimeString() + "] " + message;
+      execLogEl.appendChild(line);
+      execLogEl.scrollTop = execLogEl.scrollHeight;
+    }
+
+    function statusBadgeClasses(status) {
+      var base = "inline-flex rounded-full px-2.5 py-0.5 text-xs font-semibold ";
+      if (status === "RUNNING") return base + "bg-yellow-200 text-yellow-800";
+      if (status === "DONE") return base + "bg-green-200 text-green-800";
+      return base + "bg-gray-200 text-gray-800";
+    }
+
+    function renderTasks(filtered, wfId) {
+      var tb = document.getElementById("tasks-body");
+      tb.innerHTML = "";
+      if (wfId == null) {
+        var tr = document.createElement("tr");
+        var td = document.createElement("td");
+        td.colSpan = 5;
+        td.className = "px-3 py-8 text-center text-slate-500 text-sm";
+        td.textContent = "Select a workflow to see tasks.";
+        tr.appendChild(td);
+        tb.appendChild(tr);
+        return;
+      }
+      if (!filtered.length) {
+        var tr0 = document.createElement("tr");
+        var td0 = document.createElement("td");
+        td0.colSpan = 5;
+        td0.className = "px-3 py-8 text-center text-slate-500 text-sm";
+        td0.textContent = "No tasks in this workflow.";
+        tr0.appendChild(td0);
+        tb.appendChild(tr0);
+        return;
+      }
+      filtered.forEach(function (t) {
+        var tr = document.createElement("tr");
+        tr.className = "border-b border-slate-700/60 hover:bg-slate-800/40";
+        function cell(txt, cls) {
+          var td = document.createElement("td");
+          td.className = "px-3 py-2.5 text-sm whitespace-nowrap " + (cls || "text-slate-300");
+          td.textContent = txt;
+          tr.appendChild(td);
+        }
+        cell(String(t.id));
+        cell(t.name || "", "text-white font-medium");
+        cell(String(t.order));
+        var tdS = document.createElement("td");
+        tdS.className = "px-3 py-2.5";
+        var span = document.createElement("span");
+        span.className = statusBadgeClasses(t.status);
+        span.textContent = t.status || "—";
+        tdS.appendChild(span);
+        tr.appendChild(tdS);
+
+        var tdA = document.createElement("td");
+        tdA.className = "px-3 py-2.5 text-sm whitespace-nowrap";
+        var btn = document.createElement("button");
+        btn.className = "rounded-lg bg-rose-600 hover:bg-rose-500 text-white font-medium py-1.5 px-3 text-xs transition";
+        btn.textContent = "Delete";
+        btn.setAttribute("onclick", "deleteTask(" + String(t.id) + ")");
+        tdA.appendChild(btn);
+        tr.appendChild(tdA);
+        tb.appendChild(tr);
+      });
+    }
+
+    window.deleteTask = async function deleteTask(taskId) {
+      try {
+        var res = await fetch("/tasks/" + taskId, { method: "DELETE" });
+        var text = await res.text();
+        var data;
+        try { data = JSON.parse(text); } catch (e) { data = text; }
+        log("Task deleted: " + (typeof data === "string" ? data : JSON.stringify(data)), "info");
+        await loadTasks({});
+      } catch (e) {
+        log("Delete failed: " + String(e), "error");
+      }
+    };
+
+    async function loadTasks(opts) {
+      opts = opts || {};
+      try {
+        var res = await fetch("/tasks");
+        var text = await res.text();
+        var data;
+        try { data = JSON.parse(text); } catch (e) { data = null; }
+        if (!res.ok) {
+          log("Tasks: failed to load (" + res.status + ")", "error");
+          return [];
+        }
+        var list = Array.isArray(data) ? data : [];
+        applyDashboardFromTasks(list);
+        if (!opts.silent) log("Tasks refreshed (" + list.length + " total).", "info");
+        return list;
+      } catch (e) {
+        log("Tasks: " + String(e), "error");
+        return [];
+      }
+    }
+
+    async function loadLogs() {
+      try {
+        var res = await fetch("/logs");
+        var data = await res.json();
+        var timelineBox = document.getElementById("timeline");
+        var eventBox = document.getElementById("eventStream");
+        var logBox = document.getElementById("logs");
+        if (!timelineBox || !eventBox || !logBox) return;
+
+        timelineBox.innerHTML = "";
+        eventBox.innerHTML = "";
+        logBox.innerHTML = "";
+        (data.logs || []).forEach(function (line) {
+          var isObj = typeof line === "object" && line !== null;
+          var text, messageStr;
+          if (isObj) {
+            var ts = (line.timestamp || "").slice(11, 19);
+            var runShort = (line.run_id || "").slice(0, 8);
+            text = "[" + ts + "] run=" + runShort + " task=" + (line.task_id || "?") + " [" + (line.status || "") + "] " + (line.message || "");
+            messageStr = line.message || "";
+          } else {
+            text = String(line);
+            messageStr = text;
+          }
+          function makeDiv(t) { var d = document.createElement("div"); d.textContent = t; return d; }
+          if (messageStr.includes("Task")) { timelineBox.appendChild(makeDiv(text)); }
+          if (messageStr.includes("EVENT")) { eventBox.appendChild(makeDiv(text)); }
+          logBox.appendChild(makeDiv(text));
+        });
+        timelineBox.scrollTop = timelineBox.scrollHeight;
+        eventBox.scrollTop = eventBox.scrollHeight;
+        logBox.scrollTop = logBox.scrollHeight;
+      } catch (e) {
+        console.error("Failed to load logs", e);
+      }
+    }
+
+    function logExecWorkflowTasks(workflowId, tasks) {
+      var wf = tasks.filter(function (t) { return Number(t.workflow_id) === Number(workflowId); })
+        .sort(function (a, b) { return a.order - b.order; });
+      wf.forEach(function (t) {
+        logExec(t.name + " started");
+        logExec(t.name + " completed");
+      });
+    }
+
+    function updateContextLines() {
+      if (selUser.selectedIndex > 0 && selUser.value) {
+        var em = selUser.options[selUser.selectedIndex].textContent;
+        ctxUserLine.textContent = "Current User: " + em;
+      } else {
+        ctxUserLine.textContent = "Current User: —";
+      }
+      if (selWorkflow.selectedIndex > 0 && selWorkflow.value) {
+        ctxWorkflowLine.textContent = "Current Workflow: " + selWorkflow.options[selWorkflow.selectedIndex].textContent;
+      } else {
+        ctxWorkflowLine.textContent = "Current Workflow: —";
+      }
+    }
+
+    async function loadUsers(opts) {
+      opts = opts || {};
+      try {
+        var res = await fetch("/users");
+        var text = await res.text();
+        var data;
+        try { data = JSON.parse(text); } catch (e) { data = null; }
+        if (!res.ok) {
+          log("Users: failed to load (" + res.status + ")", "error");
+          return [];
+        }
+        var list = Array.isArray(data) ? data : [];
+        var prev = selUser.value;
+        selUser.innerHTML = "";
+        var o0 = document.createElement("option");
+        o0.value = "";
+        o0.textContent = "Select user…";
+        selUser.appendChild(o0);
+        list.forEach(function (u) {
+          var o = document.createElement("option");
+          o.value = String(u.id);
+          o.textContent = u.email;
+          selUser.appendChild(o);
+        });
+        if (opts.selectId != null) selUser.value = String(opts.selectId);
+        else if (opts.selectFirst && list.length > 0) selUser.value = String(list[0].id);
+        else if (prev && Array.from(selUser.options).some(function (x) { return x.value === prev; })) selUser.value = prev;
+        updateContextLines();
+        if (!opts.silent) log("Users loaded (" + list.length + ").", "info");
+        return list;
+      } catch (e) {
+        log("Users: " + String(e), "error");
+        return [];
+      }
+    }
+
+    async function loadWorkflows(opts) {
+      opts = opts || {};
+      try {
+        var res = await fetch("/workflows");
+        var text = await res.text();
+        var data;
+        try { data = JSON.parse(text); } catch (e) { data = null; }
+        if (!res.ok) {
+          log("Workflows: failed to load (" + res.status + ")", "error");
+          return [];
+        }
+        var all = Array.isArray(data) ? data : [];
+        var uid = parseInt(selUser.value, 10);
+        var list = Number.isFinite(uid) ? all.filter(function (w) { return w.user_id === uid; }) : [];
+        var prev = selWorkflow.value;
+        selWorkflow.innerHTML = "";
+        var w0 = document.createElement("option");
+        w0.value = "";
+        w0.textContent = "Select workflow…";
+        selWorkflow.appendChild(w0);
+        list.forEach(function (w) {
+          var o = document.createElement("option");
+          o.value = String(w.id);
+          o.textContent = w.name + " (#" + w.id + ")";
+          selWorkflow.appendChild(o);
+        });
+        if (opts.selectId != null) selWorkflow.value = String(opts.selectId);
+        else if (prev && Array.from(selWorkflow.options).some(function (x) { return x.value === prev; })) selWorkflow.value = prev;
+        updateContextLines();
+        if (!opts.silent) log("Workflows loaded (" + list.length + ").", "info");
+        return list;
+      } catch (e) {
+        log("Workflows: " + String(e), "error");
+        return [];
+      }
+    }
+
+    selUser.addEventListener("change", function () {
+      updateContextLines();
+      loadWorkflows({ silent: true }).then(function () { return loadTasks({ silent: true }); });
+    });
+    selWorkflow.addEventListener("change", function () {
+      updateContextLines();
+      loadTasks({ silent: true });
+    });
+
+    async function apiPost(url, body) {
+      try {
+        var res = await fetch(url, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+        var text = await res.text();
+        var data;
+        try { data = JSON.parse(text); } catch (e) { data = text; }
+        return { ok: res.ok, status: res.status, data: data };
+      } catch (e) {
+        return { ok: false, status: 0, data: String(e) };
+      }
+    }
+
+    async function apiPostEmpty(url) {
+      try {
+        var res = await fetch(url, { method: "POST" });
+        var text = await res.text();
+        var data;
+        try { data = JSON.parse(text); } catch (e) { data = text; }
+        return { ok: res.ok, status: res.status, data: data };
+      } catch (e) {
+        return { ok: false, status: 0, data: String(e) };
+      }
+    }
+
+    document.getElementById("btn-clear-log").addEventListener("click", function () {
+      logEl.innerHTML = "";
+      log("Log cleared.");
+    });
+    document.getElementById("btn-clear-exec-log").addEventListener("click", function () {
+      execLogEl.innerHTML = "";
+      logExec("Execution log cleared.");
+    });
+    document.getElementById("btn-refresh-tasks").addEventListener("click", function () {
+      loadTasks({});
+    });
+
+    document.getElementById("btn-user").addEventListener("click", async function () {
+      var email = document.getElementById("u-email").value.trim();
+      var password = document.getElementById("u-password").value;
+      if (!email || !password) {
+        log("User: email and password are required.", "error");
+        return;
+      }
+      var r = await apiPost("/users", { email: email, password: password });
+      if (r.ok) {
+        log("User created: " + JSON.stringify(r.data), "ok");
+        document.getElementById("u-email").value = "";
+        document.getElementById("u-password").value = "";
+        await loadUsers({ selectId: r.data.id, silent: true });
+        await loadWorkflows({});
+        await loadTasks({});
+      } else {
+        log("User failed (" + r.status + "): " + (typeof r.data === "string" ? r.data : JSON.stringify(r.data)), "error");
+      }
+    });
+
+    document.getElementById("btn-workflow").addEventListener("click", async function () {
+      if (selUser.options.length <= 1) {
+        log("Create user first.", "error");
+        return;
+      }
+      var name = document.getElementById("w-name").value.trim();
+      var userId = parseInt(selUser.value, 10);
+      if (!name) {
+        log("Workflow: name is required.", "error");
+        return;
+      }
+      if (!Number.isFinite(userId)) {
+        log("Select a current user first.", "error");
+        return;
+      }
+      var r = await apiPost("/workflows", { name: name, user_id: userId });
+      if (r.ok) {
+        log("Workflow created: " + JSON.stringify(r.data), "ok");
+        document.getElementById("w-name").value = "";
+        await loadWorkflows({ selectId: r.data.id, silent: true });
+        await loadTasks({});
+      } else {
+        log("Workflow failed (" + r.status + "): " + (typeof r.data === "string" ? r.data : JSON.stringify(r.data)), "error");
+      }
+    });
+
+    document.getElementById("btn-task").addEventListener("click", async function () {
+      if (selWorkflow.options.length <= 1) {
+        log("Create workflow first.", "error");
+        return;
+      }
+      var name = document.getElementById("t-name").value.trim();
+      var wf = parseInt(selWorkflow.value, 10);
+      var order = parseInt(document.getElementById("t-order").value, 10);
+      if (!name || !Number.isFinite(order)) {
+        log("Task: name and order are required.", "error");
+        return;
+      }
+      if (!Number.isFinite(wf)) {
+        log("Select a workflow first.", "error");
+        return;
+      }
+      var r = await apiPost("/tasks", { name: name, workflow_id: wf, order: order });
+      if (r.ok) {
+        log("Task created: " + JSON.stringify(r.data), "ok");
+        document.getElementById("t-name").value = "";
+        document.getElementById("t-order").value = "";
+        await loadTasks({});
+      } else {
+        log("Task failed (" + r.status + "): " + (typeof r.data === "string" ? r.data : JSON.stringify(r.data)), "error");
+      }
+    });
+
+    function workflowIdOrError() {
+      if (selWorkflow.options.length <= 1) {
+        log("Create workflow first.", "error");
+        return null;
+      }
+      var id = parseInt(selWorkflow.value, 10);
+      if (!Number.isFinite(id)) {
+        log("Select a workflow first.", "error");
+        return null;
+      }
+      return id;
+    }
+
+    document.getElementById("btn-orch").addEventListener("click", async function () {
+      var wid = workflowIdOrError();
+      if (wid === null) return;
+      startTimelinePolling(wid);
+      logExec("Workflow started");
+      logExec("Execution started (mode: orchestration)");
+      log("Running orchestration for workflow " + wid + "…", "info");
+      try {
+        var r = await apiPostEmpty("/execute/" + wid);
+        if (r.ok) {
+          var tasksSnap = await loadTasks({ silent: true });
+          logExecWorkflowTasks(wid, tasksSnap);
+          logExec("Result: " + JSON.stringify(r.data));
+          log("Orchestration completed: " + JSON.stringify(r.data), "ok");
+          await loadTasks({});
+        } else {
+          logExec("Error: " + (typeof r.data === "string" ? r.data : JSON.stringify(r.data)));
+          log("Orchestration failed (" + r.status + "): " + (typeof r.data === "string" ? r.data : JSON.stringify(r.data)), "error");
+        }
+      } finally {
+        stopTimelinePolling();
+        archAllDone();
+      }
+    });
+
+    document.getElementById("btn-choreo").addEventListener("click", async function () {
+      var wid = workflowIdOrError();
+      if (wid === null) return;
+      startTimelinePolling(wid);
+      logExec("Workflow started");
+      logExec("Execution started (mode: choreography)");
+      log("Running choreography for workflow " + wid + "…", "info");
+      try {
+        var r = await apiPostEmpty("/execute_choreo/" + wid);
+        if (r.ok) {
+          var tasksSnap2 = await loadTasks({ silent: true });
+          logExecWorkflowTasks(wid, tasksSnap2);
+          logExec("Result: " + JSON.stringify(r.data));
+          log("Choreography completed: " + JSON.stringify(r.data), "ok");
+          await loadTasks({});
+        } else {
+          logExec("Error: " + (typeof r.data === "string" ? r.data : JSON.stringify(r.data)));
+          log("Choreography failed (" + r.status + "): " + (typeof r.data === "string" ? r.data : JSON.stringify(r.data)), "error");
+        }
+      } finally {
+        stopTimelinePolling();
+        archAllDone();
+      }
+    });
+
+    log("Ready. Server logs print in the terminal during execution.", "info");
+    loadUsers({ selectFirst: true }).then(function () {
+      return loadWorkflows({});
+    }).then(function () {
+      return loadTasks({});
+    });
+    loadLogs();
+    setInterval(loadLogs, 1000);
+  })();
+  </script>
+</body>
+</html>
+
+"""
+
+
+@router.get("/ui", response_class=HTMLResponse)
+def workflow_ui() -> str:
+    return _UI_PAGE
