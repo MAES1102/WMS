@@ -1,5 +1,5 @@
 import uuid
-from datetime import datetime
+from datetime import UTC, datetime
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session
@@ -12,13 +12,35 @@ from app.models import Task, WorkflowRun
 def run_choreographed_workflow(
     workflow_id: int, db: Session, *, log_event
 ) -> dict:
+    """Run a workflow in choreography mode.
+
+    Instead of a central controller, each task registers an EventBus handler
+    that fires when the previous task emits a ``task_completed`` event.  The
+    first task is started directly; all subsequent tasks are triggered
+    reactively through the event chain.
+
+    When Kafka is available (``KAFKA_BOOTSTRAP_SERVERS`` reachable) the first
+    task publishes to Kafka and a consumer loop dispatches further events.
+    Otherwise the in-memory EventBus is used exclusively.
+
+    Failure isolation: ``run_task()`` only emits ``task_completed`` on success,
+    so a failing task breaks the chain and downstream tasks remain PENDING.
+
+    Args:
+        workflow_id: Primary key of the Workflow to execute.  Must exist.
+        db: Active SQLAlchemy session.
+        log_event: Structured logging callable.
+
+    Returns:
+        Dict with keys ``workflow_id``, ``run_id``, ``mode``, and ``status``.
+    """
     run_id = str(uuid.uuid4())
     run = WorkflowRun(
         id=run_id,
         workflow_id=workflow_id,
         mode="choreography",
         status="RUNNING",
-        started_at=datetime.utcnow(),
+        started_at=datetime.now(UTC),
     )
     db.add(run)
     db.commit()
@@ -51,7 +73,7 @@ def run_choreographed_workflow(
                     "task_name": cur.name,
                     "status": "EVENT_RECEIVED",
                     "message": f"EVENT RECEIVED: triggering next task after task_id={prev_task_id}",
-                    "timestamp": datetime.utcnow().isoformat(),
+                    "timestamp": datetime.now(UTC).isoformat(),
                 })
                 run_task(cur, session, run_id=rid, choreo_kafka=ck, log_event=log_event)
 
@@ -93,7 +115,7 @@ def run_choreographed_workflow(
         final_status = "FAILED"
 
     run.status = final_status
-    run.finished_at = datetime.utcnow()
+    run.finished_at = datetime.now(UTC)
     db.commit()
 
     return {

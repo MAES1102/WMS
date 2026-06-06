@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from sqlalchemy import CheckConstraint, DateTime, ForeignKey, Integer, String
+from sqlalchemy import CheckConstraint, DateTime, ForeignKey, Integer, String, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.db import Base
@@ -48,6 +48,7 @@ class Task(Base):
             "status IN ('PENDING','RUNNING','DONE','FAILED')",
             name="ck_task_status",
         ),
+        UniqueConstraint("workflow_id", "order", name="uq_task_workflow_order"),
     )
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)

@@ -1,0 +1,132 @@
+# =============================================================
+#  Python
+# =============================================================
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+*.egg
+*.egg-info/
+dist/
+build/
+eggs/
+parts/
+var/
+sdist/
+develop-eggs/
+.installed.cfg
+lib/
+lib64/
+
+# =============================================================
+#  Virtual environments
+# =============================================================
+venv/
+.venv/
+env/
+.env/
+ENV/
+
+# =============================================================
+#  Testing & coverage
+# =============================================================
+.pytest_cache/
+.coverage
+htmlcov/
+.tox/
+
+# =============================================================
+#  Node / Mermaid CLI (build tooling only)
+# =============================================================
+node_modules/
+
+# =============================================================
+#  Runtime data
+# =============================================================
+workflow.db
+*.db
+*.sqlite
+*.sqlite3
+
+# =============================================================
+#  Build artifacts — PDF pipeline
+# =============================================================
+docs/REPORT_RENDER.md
+docs/REPORT_RENDER.html
+docs/figures/*.png
+docs/figures/*.puml
+docs/figures/*.mmd
+
+# =============================================================
+#  Large binary build tools (download separately)
+# =============================================================
+plantuml.jar
+
+# =============================================================
+#  Generated PDF (keep REPORT_FINAL.pdf out of Git;
+#  submit it directly to the professor)
+# =============================================================
+REPORT_FINAL.pdf
+
+# =============================================================
+#  Machine-specific build config
+# =============================================================
+puppeteer-config.json
+
+# =============================================================
+#  Private / sensitive documents
+# =============================================================
+REBUTTAL_EMAIL.md
+"the professor's example report.pdf"
+the professor's example report.pdf
+
+# =============================================================
+#  Legacy draft documentation (superseded by docs/REPORT.md)
+# =============================================================
+docs/activity_*.md
+docs/burndown_*.md
+docs/class_diagram.md
+docs/component_diagram.md
+docs/definition_of_done.md
+docs/deployment_diagram.md
+docs/design_patterns.md
+docs/er_diagram.md
+docs/product_backlog.md
+docs/requirements.md
+docs/sequence_*.md
+docs/sprint*_backlog.md
+docs/state_*.md
+docs/use_case_diagram.md
+
+# =============================================================
+#  Temporary / working files
+# =============================================================
+check_pdf.py
+FINAL_AUDIT.md
+
+# =============================================================
+#  macOS
+# =============================================================
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+Icon?
+Thumbs.db
+
+# =============================================================
+#  IDEs
+# =============================================================
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# =============================================================
+#  Environment variables / secrets
+# =============================================================
+.env
+*.env
+.env.*
