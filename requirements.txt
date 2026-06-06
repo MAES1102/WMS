@@ -1,5 +1,7 @@
-fastapi
-uvicorn
-sqlalchemy
-pydantic
-kafka-python
+fastapi==0.115.6
+uvicorn==0.29.0
+sqlalchemy==2.0.36
+pydantic==2.10.3
+kafka-python==2.0.2
+pytest==8.3.4
+httpx==0.28.1

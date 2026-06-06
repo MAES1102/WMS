@@ -68,16 +68,25 @@ def create_choreo_consumer():
 
 
 class EventBus:
+    """Simple in-memory publish/subscribe event bus.
+
+    Used by the choreography engine to chain task execution reactively.
+    Each active workflow run registers its own ``task_completed:{run_id}``
+    channel so runs are fully isolated from one another.
+    """
+
     def __init__(self) -> None:
         self.subscribers: dict[str, list] = {}
         self.log_event = None
 
     def subscribe(self, event_name: str, handler) -> None:
+        """Register *handler* to be called when *event_name* is published."""
         if event_name not in self.subscribers:
             self.subscribers[event_name] = []
         self.subscribers[event_name].append(handler)
 
     def publish(self, event_name: str, data) -> None:
+        """Invoke all handlers registered under *event_name* with *data*."""
         handlers = self.subscribers.get(event_name, [])
         if handlers:
             if self.log_event:
