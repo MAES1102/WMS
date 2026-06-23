@@ -74,6 +74,11 @@ REPORT_FINAL.pdf
 puppeteer-config.json
 
 # =============================================================
+#  Archived preparation / legacy / generated (local only)
+# =============================================================
+archive/
+
+# =============================================================
 #  Private / sensitive documents
 # =============================================================
 REBUTTAL_EMAIL.md
@@ -103,6 +108,12 @@ docs/use_case_diagram.md
 # =============================================================
 check_pdf.py
 FINAL_AUDIT.md
+CLEANUP_REPORT.md
+REPORT_IMPLEMENTATION_AUDIT.md
+GIT_SYNC_AUDIT.md
+DOCKER_DEPLOYMENT_DECISION.md
+POST_RESTORE_VERIFICATION.md
+FINAL_COMMIT_PLAN.md
 
 # =============================================================
 #  macOS
