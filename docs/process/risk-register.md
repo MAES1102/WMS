@@ -1,0 +1,22 @@
+# Risk Register
+
+Probability and impact are current qualitative assessments, not measured frequencies. The owner role is the student developer unless review authority is explicitly required. No deadline is inferred.
+
+| ID | Risk and cause/evidence | Probability | Impact | Mitigation | Trigger | Owner role | Status | Verification gate |
+|---|---|---|---|---|---|---|---|---|
+| RK-001 | Historical test collection hang; archive attempt was interrupted while importing SQLAlchemy | Medium | High | Preserve evidence; design an isolated verification plan later; do not diagnose in Stage 2 | Future test run fails to reach collection promptly | Student developer | Open | 6 |
+| RK-002 | Selective transfer introduces regressions because prototype code carries hidden coupling | High | High | Transfer concepts in small reviewed increments from the clean baseline; require focused tests | Baseline behavior changes without approved requirement | Student developer | Open | 5-6 |
+| RK-003 | Runtime state leaks between workflow runs through definition tasks | High | High | Separate immutable definitions from run/task execution state and test repeated runs | A later run observes prior run state | Student developer | Open | 5-6 |
+| RK-004 | Orchestration and choreography develop different routing or terminal semantics | Medium | High | Use one shared model and resolver; execute the same scenarios in both modes | Same scenario yields different route/trace | Student developer | Open | 6 |
+| RK-005 | Retry becomes unbounded, non-persistent, or encoded as a graph cycle | Medium | High | Define bounded retry policy and persist attempt state; keep workflow graph acyclic | Attempt count exceeds policy or disappears after restart | Student developer | Open | 5-6 |
+| RK-006 | Schema changes are incompatible with existing data or lack migration evidence | Medium | High | Review schema impact before implementation; use disposable and persistent-store tests | Startup or migration cannot read expected schema | Student developer | Open | 5 and 8 |
+| RK-007 | Random outcomes make tests and demonstrations nondeterministic | High | Medium | Replace probability with named deterministic scenarios | Repeated identical input produces different outcome | Student developer | Open | 6-7 |
+| RK-008 | UML, code, traceability, and report drift apart | High | High | Update artifacts at each gate and cross-check against the reviewed diff | Names or behavior disagree across artifacts | Student developer | Open | 4 and 9 |
+| RK-009 | Retrospective process narratives are mistaken for contemporaneous evidence | Medium | High | Apply evidence classifications and state missing evidence explicitly | A reconstructed ceremony/chart is described as verified | Student developer and reviewer | Open | 2 and 9 |
+| RK-010 | Scope expands into Kafka, ZooKeeper, microservices, arbitrary cycles, or external services | Medium | High | Enforce CR-001 exclusions and reject undocumented scope changes | A diff or requirement introduces an excluded item | Student developer and reviewer | Open | Every gate |
+| RK-011 | Deployment loses persistent execution data after restart | Medium | High | Define persistent-volume behavior and verify restart retention | Trace or run data disappears after restart | Student developer | Open | 8 |
+| RK-012 | Schedule pressure causes checkpoint skipping or unreviewed batching | Medium | High | Keep increments small; do not start the next gate before review; record deferred scope | Work begins on a later checkpoint before approval | Student developer and reviewer | Open | Every gate |
+| RK-013 | UI obscures rather than demonstrates the single approved execution path | Medium | Medium | Delay UI until backend verification and limit it to one scenario/trace | UI requires unsupported behavior or hides trace state | Student developer | Open | 7 |
+| RK-014 | Documentation claims test success without reproducible evidence | Medium | High | Record exact exit/count evidence and use `INCONCLUSIVE` where appropriate | Pass/fail language appears without completed run | Student developer and reviewer | Open | 2, 6, and 9 |
+
+Risk acceptance and closure require review evidence; this register does not itself approve a risk. Related controls are in the [Definition of Done](./definition-of-done.md), [product backlog](./product-backlog.md), and [CR-001](../evolution/CR-001-defense-core-refactoring.md).

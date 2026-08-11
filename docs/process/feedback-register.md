@@ -1,0 +1,11 @@
+# Feedback Register
+
+Private correspondence, addresses, signatures, student numbers, and raw email text are excluded. Dates and summaries below are the factual milestones authorized for this process record. Because the original correspondence is intentionally not committed, its durable evidentiary limitation is explicit.
+
+| ID | Date | Source type | Concise summary | Affected artifact or decision | Required response | Current status | Evidence limitation |
+|---|---|---|---|---|---|---|---|
+| FB-001 | 2026-04-03 | Project proposal submission/reviewer response | Project proposal submitted and permission given to proceed. | Initial project scope and development start | Proceed with the project while producing appropriate engineering artifacts | Historical milestone recorded | Original private communication is excluded; repository evidence is indirect, so process classification is `RECONSTRUCTED` |
+| FB-002 | 2026-05-04 | Report submission | A project report was submitted for review. | Report and assessment baseline | Await and analyze review feedback | Historical milestone recorded | Submitted report artifact and private transmission record are not durably linked in Git; classification is `RECONSTRUCTED` |
+| FB-003 | 2026-05-16 | Instructor review feedback | The project was classified as widely incomplete; feedback required strict coverage of the selected process, increments, UML, process artifacts, backlog/burndown-style evidence, and algorithmic diagrams for complex functionality. | Process record, backlog, sprint evidence, UML, diagrams, report, and traceability | Establish evidence-controlled process documentation and evolve the system only through reviewed checkpoints | Stage 2 project-review response complete; Requirements v2 has not started; no additional instructor approval is claimed | Concise paraphrase only; original private correspondence is excluded, so classification is `RECONSTRUCTED` |
+
+The response is tracked through the [development process](./development-process.md), [evidence register](./evidence-register.md), [product backlog](./product-backlog.md), and [CR-001](../evolution/CR-001-defense-core-refactoring.md). No feedback entry constitutes approval of CR-001 or future requirements.
