@@ -47,8 +47,19 @@ No calendar dates, meeting attendance, daily Scrum record, approval event, veloc
 | Verifiable output | The advanced prototype is preserved at `archive/advanced-prototype`; it contains transition, graph, task-execution, seed, UI, and additional test artifacts (`VERIFIED` as content). Stage 1 refs are preserved locally and remotely (`VERIFIED`). |
 | Reconstructed information | The archive report’s Sprint 4 task sequence, points, burndown, reviews, and claimed 27-test result. |
 | Missing evidence | No contemporaneous sprint record and no conclusive archive test run. The archive contains 34 test functions while its documentation claims 27. |
-| Review status | Preservation is complete. [CR-001](../evolution/CR-001-defense-core-refactoring.md) is approved for progression to Requirements v2 only; Requirements v2 has not started; implementation remains `NOT STARTED`; release remains `NOT SCHEDULED`. |
+| Review status | Preservation is complete. At the historical Stage 2 approval boundary, [CR-001](../evolution/CR-001-defense-core-refactoring.md) was approved for progression to Requirements v2 only and Requirements v2 had not started. Requirements v2 was subsequently drafted; r4 passed final substantive review, and the approved Stage 3 baseline is established by the Stage 3 documentation commit. Implementation remains `NOT STARTED`; release remains `NOT SCHEDULED`. |
 | Retrospective lesson | Start from an immutable baseline, classify historical evidence, approve impact before requirements/design, and port only bounded capabilities. |
+
+## Requirements v2 approval checkpoint
+
+| Field | Record |
+|---|---|
+| Entry state | Stage 2 is committed at `6a5e42c6fa5d4d71fd599d606d7c805e95177b2f`; CR-001 is approved for progression to Requirements v2 only. |
+| Drafting activity | Requirements v2 and its traceability record were drafted from approved CR-001 and evidence-classified baseline/prototype inspection. |
+| Review status | The r1 substantive review identified narrow corrections to attempt-bound applicability, the `FR-006`/`FR-021` dependency cycle, `NFR-005` verification alignment, and `NFR-008` clarity. The r2 substantive re-review then identified the remaining `FR-017`/`FR-027` dependency cycle, the incomplete retry obligation in `FR-022`, and the checkpoint-misaligned dependency in `NFR-008`. Final review of r3 identified the stale `NFR-006` brokerless-choreography cross-reference. The corrected r4 passed final substantive review, and the approved Requirements v2 baseline is established by the Stage 3 documentation commit. |
+| Verification status | Documentation checks only; no executable test was created or run. |
+| Later checkpoints | Architecture/UML and implementation remain not started. |
+| Release status | `NOT SCHEDULED` |
 
 ## Burndown limitation
 

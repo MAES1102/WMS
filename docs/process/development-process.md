@@ -35,7 +35,7 @@ The activity model follows the four common software-process activities in `4 - S
 
 | Activity | Inputs | Outputs/products | Responsible role | Preconditions | Completion evidence | Current classification |
 |---|---|---|---|---|---|---|
-| Specification | Stakeholder need, feedback, approved change request | Requirements, acceptance conditions, scope boundaries, traceability | Student developer; reviewer approves | Problem and scope recorded | Reviewed requirements and links to source evidence | `PLANNED` for Requirements v2 |
+| Specification | Stakeholder need, feedback, approved change request | Requirements, acceptance conditions, scope boundaries, traceability | Student developer; reviewer approves | Problem and scope recorded | Reviewed requirements and links to source evidence | `APPROVED — Stage 3 requirements baseline`; version-controlled by the Stage 3 documentation commit |
 | Design and implementation | Approved requirements and architecture decisions | Domain model, persistence, resolver, execution modes, UI, deployment increment | Student developer | Relevant checkpoint approved | Reviewable diff, matching UML, deterministic verification | `PLANNED` for defense core |
 | Verification and validation | Implemented increment and acceptance conditions | Test results, trace, review findings, release recommendation | Student developer; reviewer decides gate | Clean isolated environment and known baseline | Reproducible results and unchanged repository/runtime evidence | `PLANNED`; archive attempt is `INCONCLUSIVE` |
 | Evolution | Change proposal, preserved baseline, impact analysis, risk register | Controlled increments and updated traceability | Student developer; reviewer controls gates | Baseline and historical prototype preserved | Approved change artifacts and checkpoint evidence | `VERIFIED` through the reviewed and approved Stage 2 impact analysis |
@@ -57,7 +57,7 @@ The controlled workflow is:
 9. Release decision.
 10. Documentation and traceability update.
 
-Stage 2 creates [CR-001](../evolution/CR-001-defense-core-refactoring.md) and its impact analysis. It stops before step 5. Requirements v2, design, implementation, testing, and release work must not be represented as completed.
+Stage 2 created and committed [CR-001](../evolution/CR-001-defense-core-refactoring.md) and its approved impact analysis. Stage 3 establishes Requirements v2 as the approved requirements baseline at step 5 through the Stage 3 documentation commit. Architecture/UML requires new explicit checkpoint-4 authorization and has not begun; implementation, executable testing, deployment, and release work remain not started.
 
 The workflow is consistent with `11 - sw evolmaintenance.pdf`, slides 8-12: change proposals drive evolution, affected components support cost and impact estimation, and implementation follows requirements analysis and updating. Slides 17 and 24 frame useful-system change and functional enhancement; slides 33-34 and 55 support maintainability evidence, re-documentation, and continuous refactoring.
 
@@ -67,7 +67,7 @@ The workflow is consistent with `11 - sw evolmaintenance.pdf`, slides 8-12: chan
 |---|---|---|
 | `v1-linear-baseline` | Immutable annotated baseline tag peeling to `f5ea4d71ebb4082cebe4f7e7a8a5ad3fcdfbfbaa` | `VERIFIED` locally and remotely |
 | `archive/advanced-prototype` | Preserved historical prototype at `5d18b469b77beb22e6721f769fbd1b39223955a3` | `VERIFIED` locally and remotely |
-| `refactor/defense-core` | At the accepted Stage 1 boundary, the branch was at baseline commit `f5ea4d71ebb4082cebe4f7e7a8a5ad3fcdfbfbaa` with unchanged tracked tree and index and no upstream; Stage 2 adds exactly eight documentation files and no source or configuration change; the branch remains intentionally unpushed | `VERIFIED` by the Stage 1 and Stage 2 checkpoint records |
+| `refactor/defense-core` | At the accepted Stage 1 boundary, the branch was at baseline commit `f5ea4d71ebb4082cebe4f7e7a8a5ad3fcdfbfbaa` with unchanged tracked tree and index and no upstream; Stage 2 adds exactly eight documentation files; Stage 3 adds the two requirements documents and updates four controlled process documents; neither stage changes source or configuration; the branch remains intentionally unpushed | `VERIFIED` by the Stage 1, Stage 2, and Stage 3 checkpoint records |
 | `main` | Unchanged baseline branch | `VERIFIED` locally and remotely |
 
 Commits and pushes require explicit approval. The controlled workflow prohibits reset, force push, and history rewriting. Branches and tags are not replaced or deleted as an implicit recovery action. This configuration-control approach is supported by `4 - SwProc.pdf`, slides 74-76, which discuss change/configuration management, iterative development, managed requirements, visual modeling, quality verification, and controlled software changes.
@@ -78,15 +78,15 @@ Only one checkpoint may advance at a time:
 
 1. Version preservation - complete and durably verified.
 2. Process documentation and change request - substantively reviewed and approved; durability established by the Stage 2 documentation commit.
-3. Requirements v2 - not started.
-4. ADR and UML drafts - not started.
+3. Requirements v2 - complete; substantively reviewed, approved, and committed by the Stage 3 documentation commit.
+4. ADR and UML drafts - `NOT STARTED`.
 5. Backend domain model - not started.
 6. Six execution tests - not started.
 7. UI - not started.
 8. Deployment - not started.
 9. Final report - not started.
 
-Requirements v2 may begin only after the Stage 2 documentation commit exists; checkpoint 3 remains not started in this record.
+Architecture/UML requires a new explicit checkpoint-4 authorization and has not begun; checkpoint 4 remains `NOT STARTED` in this record.
 
 A later stage may begin only after the previous checkpoint is reviewed. The applicable quality criteria are defined in the [Definition of Done](./definition-of-done.md), and current threats are tracked in the [risk register](./risk-register.md).
 
@@ -97,6 +97,9 @@ A later stage may begin only after the previous checkpoint is reviewed. The appl
 - `4 - SwProc.pdf`, slides 74-76: configuration/change management, iterative delivery, requirements management, UML, quality verification, and change control. These are referenced practices, not a claim that the project uses RUP.
 - `11 - sw evolmaintenance.pdf`, slides 8-12 and 17: change proposals, impact analysis, release planning, requirements updating, implementation, and continuing evolution.
 - `11 - sw evolmaintenance.pdf`, slides 24, 33-34, and 55: enhancement maintenance, maintainability indicators, re-documentation/restructuring, and continuous refactoring.
+- `6 - Requirement Engineering.pdf`, slides 6, 9, 14, and 19: user/system requirements, functional/non-functional requirements, and objectively verifiable NFRs.
+- `6 - Requirement Engineering.pdf`, slides 25, 31, 33, and 39: requirements-document purpose, user/system specification, atomic natural-language statements, and structured specification.
+- `6 - Requirement Engineering.pdf`, slides 67, 69, 71, and 76-78: validation, review techniques/checks, unique identification, traceability, impact analysis, and controlled requirements change.
 
 ## Related records
 
