@@ -1,0 +1,93 @@
+@startuml
+title Defense Core — Deterministic Validation, Routing, Retry, and Terminal Activity
+skinparam shadowing false
+
+start
+:Receive workflow definition,
+mode, and named deterministic scenario;
+:Validate exactly one designated start;
+:Validate at least one reachable terminal
+and every task reachable from start;
+:Reject self-edge or directed cycle;
+:Accept only SUCCESS, FAILURE, ALWAYS;
+:Reject equal-precedence ambiguity;
+:Validate every task has a positive
+maximum-total-attempt bound;
+
+if (Complete definition valid?) then (no)
+  :Reject definition with violations;
+  :Create no run, attempt, retry,
+  transition-selection, or trace state;
+  stop
+else (yes)
+  :Create isolated run and persist initial trace;
+  :Set current task to designated start;
+endif
+
+while (Run has no terminal state?) is (continue)
+  :Take next deterministic scenario outcome
+  for current task;
+  :Persist attempt ordinal and outcome
+  in run-local trace order;
+
+  if (Outcome is FAILURE?) then (yes)
+    if (Completed attempts < positive bound?) then (yes)
+      :Persist retry observation;
+      :Keep current task unchanged;
+      note right
+      Retry repeats the current task.
+      No transition is selected or traversed.
+      Bound 1 permits zero retries.
+      end note
+    else (no — bound reached)
+      :Do not retry;
+      :Resolve final FAILURE normally;
+      if (Matching FAILURE transition exists?) then (yes)
+        :Select matching FAILURE transition;
+        :Persist selection before advancement;
+        :Set current task to selected target;
+      else (no)
+        if (ALWAYS fallback exists?) then (yes)
+          :Select ALWAYS fallback;
+          :Persist selection before advancement;
+          :Set current task to selected target;
+        else (no)
+          :Persist unsuccessful terminal state
+          and terminal trace observation together;
+          stop
+        endif
+      endif
+    endif
+  else (SUCCESS)
+    :Resolve final SUCCESS normally;
+    if (Matching SUCCESS transition exists?) then (yes)
+      :Select matching SUCCESS transition;
+      :Persist selection before advancement;
+      :Set current task to selected target;
+    else (no)
+      if (ALWAYS fallback exists?) then (yes)
+        :Select ALWAYS fallback;
+        :Persist selection before advancement;
+        :Set current task to selected target;
+      else (no)
+        :Persist successful terminal state
+        and terminal trace observation together;
+        stop
+      endif
+    endif
+  endif
+endwhile (terminal)
+
+stop
+
+legend
+Status: APPROVED — checkpoint 4 architecture baseline
+Requirements baseline: 6074fd7ef490ea3b08177e7a786035159f39a91c
+Working base: b5c7da9e51382bb418f017790ae944c8dff26a06
+Implementation: NOT STARTED
+Executable verification: NOT STARTED
+Release: NOT SCHEDULED
+Both modes use this one accepted checkpoint-4 semantic algorithm.
+Equal-precedence ambiguity is rejected during validation, not resolved here.
+endlegend
+@enduml

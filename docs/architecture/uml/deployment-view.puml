@@ -1,0 +1,58 @@
+@startuml
+title Defense Core — Accepted Single-Service Deployment View
+skinparam shadowing false
+
+node "Operator device" as ClientNode {
+  artifact "Browser" as Browser
+  artifact "Static UI delivered by application" as StaticUI
+}
+
+node "Application host" as AppHost {
+  node "One FastAPI application process" as FastAPI {
+    component "Presentation boundary" as Presentation
+    component "Application + domain semantics" as Core
+    component "In-memory run-scoped EventBus" as EventBus
+    component "Persistence adapter" as Adapter
+  }
+}
+
+database "Persistent database / storage" as Database
+
+Browser --> StaticUI : presents
+Browser --> Presentation : client-server requests
+Presentation --> Core : in-process call
+Core --> EventBus : in-process choreography only
+Core --> Adapter : in-process persistence call
+Adapter --> Database : durable definitions, runs, attempts, trace
+
+note right of FastAPI
+Single deployable application.
+Orchestration and choreography run in this process.
+Concrete hosting and configuration are deferred.
+end note
+
+note bottom of Database
+Persistent storage is required.
+Exact technology configuration, schema,
+volume, and migration are deferred.
+end note
+
+note as Exclusions
+Explicitly absent from the topology:
+- Kafka and ZooKeeper
+- distributed or external broker
+- microservices or distributed execution
+- external business service
+- separate execution-mode services
+end note
+
+legend
+Status: APPROVED — checkpoint 4 architecture baseline
+Requirements baseline: 6074fd7ef490ea3b08177e7a786035159f39a91c
+Working base: b5c7da9e51382bb418f017790ae944c8dff26a06
+Implementation: NOT STARTED
+Executable verification: NOT STARTED
+Release: NOT SCHEDULED
+Deployment configuration and release work have not started.
+endlegend
+@enduml

@@ -1,0 +1,88 @@
+@startuml
+title Defense Core — Conceptual Domain Model
+hide methods
+skinparam classAttributeIconSize 0
+skinparam shadowing false
+
+class "Workflow Definition" as WorkflowDefinition <<definition>> {
+  identity
+  designated start
+}
+
+class "Task Definition" as TaskDefinition <<definition>> {
+  identity
+  name
+  positive maximum-total-attempt bound
+}
+
+class "Transition" as Transition <<definition>> {
+  condition: SUCCESS | FAILURE | ALWAYS
+}
+
+class "Named Scenario" as Scenario <<deterministic input>> {
+  identity
+  finite outcome sequence by task
+}
+
+class "Workflow Run" as WorkflowRun <<run state>> {
+  identity
+  mode
+  scenario identity
+  run status
+}
+
+class "Task Attempt / Execution State" as TaskAttempt <<run state>> {
+  attempt ordinal
+  outcome
+  retry count
+  timing observations
+}
+
+class "Trace Entry" as TraceEntry <<run state>> {
+  run-local order
+  observation kind
+  observation data
+}
+
+WorkflowDefinition "1" *-- "1..*" TaskDefinition : defines
+WorkflowDefinition "1" *-- "0..*" Transition : connects
+Transition "0..*" --> "1" TaskDefinition : from task
+Transition "0..*" --> "1" TaskDefinition : to task
+WorkflowDefinition "1" <-- "0..*" WorkflowRun : executes accepted definition
+Scenario "1" <-- "0..*" WorkflowRun : selects
+WorkflowRun "1" *-- "0..*" TaskAttempt : owns
+TaskDefinition "1" <-- "0..*" TaskAttempt : attempt of
+WorkflowRun "1" *-- "1..*" TraceEntry : ordered evidence
+TaskAttempt "0..1" <-- "0..*" TraceEntry : may describe
+Transition "0..1" <-- "0..*" TraceEntry : may record selection
+
+note right of WorkflowDefinition
+Exactly one designated start.
+Conditional DAG only.
+All tasks reachable; terminal reachable.
+end note
+
+note right of TaskDefinition
+Reusable, execution-immutable definition data.
+Neither strategy mutates it during a run.
+No mutable run status, attempt/retry count,
+timestamps, selected transition,
+trace position, or terminal state.
+end note
+
+note bottom of WorkflowRun
+All mutable attempt, retry, transition,
+trace, and terminal state belongs to one run.
+Sequential and concurrent runs are isolated.
+end note
+
+legend
+Status: APPROVED — checkpoint 4 architecture baseline
+Requirements baseline: 6074fd7ef490ea3b08177e7a786035159f39a91c
+Working base: b5c7da9e51382bb418f017790ae944c8dff26a06
+Implementation: NOT STARTED
+Executable verification: NOT STARTED
+Release: NOT SCHEDULED
+Conceptual model only; exact classes and storage schema are deferred.
+endlegend
+@enduml

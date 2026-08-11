@@ -1,0 +1,105 @@
+@startuml
+title Defense Core — In-Memory Choreography Sequence
+autonumber
+skinparam shadowing false
+
+actor "Workflow operator" as Operator
+participant "FastAPI boundary" as Boundary
+participant "Application service" as Service
+participant "Definition validator" as Validator
+participant "Choreography strategy" as Choreography
+participant "Run-scoped in-memory\nEventBus" as EventBus
+participant "Controlled workflow-advance\nhandler (one per run)" as Handler
+participant "Deterministic scenario" as Scenario
+participant "Shared retry /\ntransition resolver" as Resolver
+participant "Persistence boundary" as Persistence
+database "Persistent database" as Database
+
+Operator -> Boundary : start workflow candidate\nwith choreography + named scenario
+Boundary -> Service : request run
+Service -> Validator : validate complete definition
+
+alt definition invalid
+  Validator --> Service : rejected with violations
+  Service --> Boundary : rejection; no run identity
+  Boundary --> Operator : validation feedback
+  note over Service,Database
+  No run or execution state is created.
+  No EventBus subscription is created.
+  end note
+else definition accepted
+  Validator --> Service : accepted definition
+  Service -> Persistence : create isolated run + initial trace
+  Persistence -> Database : commit run state
+  Database --> Persistence : committed
+  Service -> Choreography : execute(run, definition, scenario)
+  Choreography -> EventBus : subscribe run channel to Handler
+  Choreography -> Handler : begin with designated start task
+
+  loop deterministic run advancement until terminal
+    Handler -> Scenario : next deterministic outcome(task)
+    Scenario --> Handler : SUCCESS or FAILURE
+    Handler -> Persistence : persist attempt ordinal + outcome
+    Persistence -> Database : commit ordered attempt trace
+    Database --> Persistence : committed
+
+    alt FAILURE and completed attempts below bound
+      Handler -> Persistence : persist retry observation
+      Persistence -> Database : commit ordered retry trace
+      Database --> Persistence : committed
+      Handler -> EventBus : publish same-task retry event for this run
+      EventBus -> Handler : synchronous ordered dispatch
+      note over Handler,EventBus
+      Retry does not select or traverse a graph edge.
+      end note
+    else final outcome or attempt bound reached
+      Handler -> Resolver : resolve final outcome + outgoing transitions
+      note over Handler,Resolver
+      SUCCESS / FAILURE precedes ALWAYS.
+      At exhaustion, final FAILURE is resolved normally.
+      end note
+      alt eligible transition selected
+        Resolver --> Handler : next task + selected transition
+        Handler -> Persistence : persist transition selection
+        Persistence -> Database : commit before event publication
+        Database --> Persistence : committed
+        Handler -> EventBus : publish next-task event for this run
+        EventBus -> Handler : synchronous ordered dispatch
+      else no eligible transition after SUCCESS
+        Resolver --> Handler : successful terminal
+        Handler -> Persistence : persist successful terminal + trace
+        Persistence -> Database : commit together
+        Database --> Persistence : committed
+        Handler -> EventBus : signal terminal cleanup
+      else no eligible transition after FAILURE
+        Resolver --> Handler : unsuccessful terminal
+        Handler -> Persistence : persist unsuccessful terminal + trace
+        Persistence -> Database : commit together
+        Database --> Persistence : committed
+        Handler -> EventBus : signal terminal cleanup
+      end
+    end
+  end
+
+  Choreography -> EventBus : unsubscribe Handler and clear run channel
+  Choreography --> Service : terminal run result
+  Service --> Boundary : run identity, status, trace reference
+  Boundary --> Operator : inspect persistent ordered trace
+end
+
+note bottom of EventBus
+In-memory only; one controlled advance handler per run.
+No business dependence on unrelated subscriber order.
+No Kafka, ZooKeeper, broker, or broker fallback.
+end note
+
+legend
+Status: APPROVED — checkpoint 4 architecture baseline
+Requirements baseline: 6074fd7ef490ea3b08177e7a786035159f39a91c
+Working base: b5c7da9e51382bb418f017790ae944c8dff26a06
+Implementation: NOT STARTED
+Executable verification: NOT STARTED
+Release: NOT SCHEDULED
+Sequence is accepted checkpoint-4 design behavior, not an executed or passed case.
+endlegend
+@enduml

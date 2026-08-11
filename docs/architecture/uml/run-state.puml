@@ -1,0 +1,60 @@
+@startuml
+title Defense Core — Accepted Run Lifecycle
+hide empty description
+skinparam shadowing false
+
+state "Definition candidate" as Candidate
+state "Rejected definition\n(no run exists)" as Rejected #LightGray
+state "Run created" as Created
+state "RUNNING" as Running
+state "SUCCESSFUL terminal" as Successful
+state "UNSUCCESSFUL terminal" as Unsuccessful
+
+[*] --> Candidate
+Candidate --> Rejected : any definition rule invalid
+Rejected --> [*]
+
+Candidate --> Created : complete definition valid
+Created --> Running : initial run state and trace committed
+
+Running --> Running : attempt outcome persisted
+Running --> Running : retry persisted; same task; no edge
+Running --> Running : transition persisted; advance selected task
+Running --> Successful : final SUCCESS; no eligible transition
+Running --> Unsuccessful : final FAILURE; no eligible transition
+
+Successful --> [*] : terminal trace committed; cleanup complete
+Unsuccessful --> [*] : terminal trace committed; cleanup complete
+
+note right of Rejected
+This is a validation outcome,
+not a persisted workflow-run state.
+No execution state is created.
+end note
+
+note right of Running
+All attempts, retries, selected transitions,
+trace positions, and terminal decisions
+are scoped to exactly one run.
+end note
+
+note bottom of Successful
+Choreography terminal path removes
+its run-scoped subscription.
+end note
+
+note bottom of Unsuccessful
+Choreography terminal path removes
+its run-scoped subscription.
+end note
+
+legend
+Status: APPROVED — checkpoint 4 architecture baseline
+Requirements baseline: 6074fd7ef490ea3b08177e7a786035159f39a91c
+Working base: b5c7da9e51382bb418f017790ae944c8dff26a06
+Implementation: NOT STARTED
+Executable verification: NOT STARTED
+Release: NOT SCHEDULED
+State names are conceptual; exact persisted values are deferred.
+endlegend
+@enduml

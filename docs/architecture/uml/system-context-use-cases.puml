@@ -1,0 +1,51 @@
+@startuml
+title Defense Core — System Context and Use Cases
+left to right direction
+skinparam shadowing false
+
+actor "Workflow operator" as Operator
+actor "Academic evaluator" as Evaluator
+
+rectangle "Defense-core workflow application\n(single system boundary)" {
+  usecase "Define or select\nworkflow" as UC_Definition
+  usecase "Validate definition\nbefore run creation" as UC_Validate
+  usecase "Select execution mode\nand named scenario" as UC_Select
+  usecase "Start isolated run" as UC_Start
+  usecase "Inspect persistent\nordered trace" as UC_Trace
+  usecase "Compare orchestration\nand choreography" as UC_Compare
+}
+
+Operator --> UC_Definition
+Operator --> UC_Select
+Operator --> UC_Start
+Operator --> UC_Trace
+Evaluator --> UC_Trace
+Evaluator --> UC_Compare
+
+UC_Definition ..> UC_Validate : <<include>>
+UC_Start ..> UC_Validate : <<include>>
+UC_Start ..> UC_Select : <<include>>
+UC_Compare ..> UC_Trace : <<include>>
+
+note right of UC_Validate
+Invalid definition:
+no run or execution state is created.
+end note
+
+note bottom of UC_Select
+Modes: orchestration or choreography.
+Scenarios: success, retry-then-success,
+or permanent failure.
+Specification only; not executed or passed.
+end note
+
+legend
+Status: APPROVED — checkpoint 4 architecture baseline
+Requirements baseline: 6074fd7ef490ea3b08177e7a786035159f39a91c
+Working base: b5c7da9e51382bb418f017790ae944c8dff26a06
+Implementation: NOT STARTED
+Executable verification: NOT STARTED
+Release: NOT SCHEDULED
+No external business system is in scope.
+endlegend
+@enduml

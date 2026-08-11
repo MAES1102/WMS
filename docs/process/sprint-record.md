@@ -65,4 +65,18 @@ No calendar dates, meeting attendance, daily Scrum record, approval event, veloc
 
 No contemporaneous source data has been found that can substantiate a burndown chart for any sprint. Historical charts in reports may be retrospective reconstructions and must not be presented as measured daily evidence. No replacement chart is fabricated in this checkpoint.
 
+## Checkpoint-4 architecture/UML approval record
+
+| Field | Record |
+|---|---|
+| Entry state | Requirements v2 remains the approved Stage 3 baseline at `6074fd7ef490ea3b08177e7a786035159f39a91c`; checkpoint-4 drafting starts from the post-push consistency correction `b5c7da9e51382bb418f017790ae944c8dff26a06`. |
+| Authorized scope | Architecture decisions, architecture overview/traceability, and matching PlantUML sources only. |
+| Artifact manifest | `docs/architecture/architecture-overview.md`; `docs/architecture/architecture-decisions.md`; `docs/architecture/architecture-traceability.md`; `docs/architecture/uml/system-context-use-cases.puml`; `docs/architecture/uml/component-view.puml`; `docs/architecture/uml/domain-model.puml`; `docs/architecture/uml/orchestration-sequence.puml`; `docs/architecture/uml/choreography-sequence.puml`; `docs/architecture/uml/routing-retry-activity.puml`; `docs/architecture/uml/run-state.puml`; `docs/architecture/uml/deployment-view.puml`. |
+| Controlled record updates | Requirements traceability, development process, evidence register, feedback register, product backlog, and this sprint record. |
+| Course sources inspected | `9 - sw architecture.pdf`, slides 24–26, 38, 41–43, 47–49, 92–93, 96, 100–106, 110–111, 129–130, and 143–145; `7 - modeling.pdf`, slides 67, 69–70, 86–87, 95–96, 109, 115–117, 146–147, and printed slide 161. |
+| Review status | The r2 architecture review passed substantive project review; the architecture/ADR/UML set is the `APPROVED — checkpoint 4 architecture baseline`, and all seven ADRs are `ACCEPTED — checkpoint 4 architecture baseline`. Git durability requires a separate authorized and verified version-control action. |
+| Implementation and verification | No implementation or executable test was created or run; both remain `NOT STARTED`. |
+| Later checkpoints | Checkpoint 5 remains `NOT STARTED`; no schema, endpoint, UI, configuration, deployment, or final-report work began. |
+| Release status | `NOT SCHEDULED` |
+
 Related records: [development process](./development-process.md), [product backlog](./product-backlog.md), [evidence register](./evidence-register.md), and [feedback register](./feedback-register.md).

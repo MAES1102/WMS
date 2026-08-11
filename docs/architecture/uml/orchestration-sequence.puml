@@ -1,0 +1,86 @@
+@startuml
+title Defense Core — Centralized Orchestration Sequence
+autonumber
+skinparam shadowing false
+
+actor "Workflow operator" as Operator
+participant "FastAPI boundary" as Boundary
+participant "Application service" as Service
+participant "Definition validator" as Validator
+participant "Orchestration strategy" as Orchestrator
+participant "Deterministic scenario" as Scenario
+participant "Shared retry /\ntransition resolver" as Resolver
+participant "Persistence boundary" as Persistence
+database "Persistent database" as Database
+
+Operator -> Boundary : start accepted workflow candidate\nwith orchestration + named scenario
+Boundary -> Service : request run
+Service -> Validator : validate complete definition
+
+alt definition invalid
+  Validator --> Service : rejected with violations
+  Service --> Boundary : rejection; no run identity
+  Boundary --> Operator : validation feedback
+  note over Service,Database
+  No run, attempt, retry, transition,
+  or trace state is created.
+  end note
+else definition accepted
+  Validator --> Service : accepted definition
+  Service -> Persistence : create isolated run + initial trace
+  Persistence -> Database : commit run state
+  Database --> Persistence : committed
+  Service -> Orchestrator : execute(run, definition, scenario)
+
+  loop for each resolver-selected task until terminal
+    Orchestrator -> Scenario : next deterministic outcome(task)
+    Scenario --> Orchestrator : SUCCESS or FAILURE
+    Orchestrator -> Persistence : persist attempt ordinal + outcome
+    Persistence -> Database : commit ordered attempt trace
+    Database --> Persistence : committed
+
+    alt FAILURE and completed attempts below bound
+      Orchestrator -> Persistence : persist retry observation
+      Persistence -> Database : commit ordered retry trace
+      Database --> Persistence : committed
+      Orchestrator -> Orchestrator : repeat current task\nwithout selecting an edge
+    else final outcome or attempt bound reached
+      Orchestrator -> Resolver : resolve final outcome + outgoing transitions
+      note over Orchestrator,Resolver
+      SUCCESS / FAILURE precedes ALWAYS.
+      At exhaustion, final FAILURE is resolved normally.
+      end note
+      alt eligible transition selected
+        Resolver --> Orchestrator : next task + selected transition
+        Orchestrator -> Persistence : persist transition selection
+        Persistence -> Database : commit before advancing next task
+        Database --> Persistence : committed
+      else no eligible transition after SUCCESS
+        Resolver --> Orchestrator : successful terminal
+        Orchestrator -> Persistence : persist successful terminal + trace
+        Persistence -> Database : commit together
+        Database --> Persistence : committed
+      else no eligible transition after FAILURE
+        Resolver --> Orchestrator : unsuccessful terminal
+        Orchestrator -> Persistence : persist unsuccessful terminal + trace
+        Persistence -> Database : commit together
+        Database --> Persistence : committed
+      end
+    end
+  end
+
+  Orchestrator --> Service : terminal run result
+  Service --> Boundary : run identity, status, trace reference
+  Boundary --> Operator : inspect persistent ordered trace
+end
+
+legend
+Status: APPROVED — checkpoint 4 architecture baseline
+Requirements baseline: 6074fd7ef490ea3b08177e7a786035159f39a91c
+Working base: b5c7da9e51382bb418f017790ae944c8dff26a06
+Implementation: NOT STARTED
+Executable verification: NOT STARTED
+Release: NOT SCHEDULED
+Sequence is accepted checkpoint-4 design behavior, not an executed or passed case.
+endlegend
+@enduml

@@ -1,0 +1,61 @@
+@startuml
+title Defense Core — Accepted Component View
+skinparam componentStyle rectangle
+skinparam shadowing false
+
+actor "Workflow operator" as Operator
+component "Browser / static UI" as Browser <<presentation>>
+
+node "One FastAPI application process" as App {
+  component "FastAPI boundary" as Boundary <<presentation>>
+  component "Application services" as Services <<application>>
+  component "Definition validator" as Validator <<domain>>
+  component "Shared transition resolver\nand retry / terminal policy" as Resolver <<domain>>
+  component "Centralized\norchestration strategy" as Orchestration <<application>>
+  component "Choreography strategy" as Choreography <<application>>
+  component "Run-scoped in-memory\nEventBus" as EventBus <<infrastructure>>
+  component "Named deterministic\nscenario provider" as Scenario <<infrastructure>>
+  component "Persistence boundary" as Persistence <<infrastructure>>
+}
+
+database "Persistent database / storage" as Database
+
+Operator --> Browser : define/select, run, inspect
+Browser --> Boundary : client requests
+Boundary --> Services : use-case request
+Services --> Validator : validate before run creation
+Services --> Orchestration : select mode
+Services --> Choreography : select mode
+Orchestration --> Resolver : shared semantics
+Choreography --> Resolver : shared semantics
+Choreography --> EventBus : run-scoped subscribe/publish/cleanup
+Orchestration --> Scenario : deterministic outcomes
+Choreography --> Scenario : deterministic outcomes
+Services --> Persistence : create/retrieve run
+Orchestration --> Persistence : persist before advancement
+Choreography --> Persistence : persist before event advancement
+Persistence --> Database : durable state and ordered trace
+
+note right of EventBus
+One controlled advance handler per run.
+Deterministic ordered dispatch.
+Terminal cleanup / unsubscription.
+No broker fallback.
+end note
+
+note bottom of Resolver
+SUCCESS / FAILURE precedes ALWAYS.
+Retry repeats the current task without an edge.
+Equal-precedence ambiguity is rejected pre-run.
+end note
+
+legend
+Status: APPROVED — checkpoint 4 architecture baseline
+Requirements baseline: 6074fd7ef490ea3b08177e7a786035159f39a91c
+Working base: b5c7da9e51382bb418f017790ae944c8dff26a06
+Implementation: NOT STARTED
+Executable verification: NOT STARTED
+Release: NOT SCHEDULED
+Conceptual components only; concrete modules and APIs are deferred.
+endlegend
+@enduml
