@@ -63,10 +63,12 @@ docs/figures/*.mmd
 plantuml.jar
 
 # =============================================================
-#  Generated PDF (keep REPORT_FINAL.pdf out of Git;
-#  submit it directly to the professor)
+#  Generated PDFs — submit directly to the professor
+#  (binary files; regenerate with: python build_pdf.py)
 # =============================================================
 REPORT_FINAL.pdf
+REPORT_FINAL_SUBMISSION.pdf
+REPORT_FINAL_UPDATED.pdf
 
 # =============================================================
 #  Machine-specific build config
@@ -104,7 +106,7 @@ docs/state_*.md
 docs/use_case_diagram.md
 
 # =============================================================
-#  Temporary / working files
+#  Temporary / working files and experiments
 # =============================================================
 check_pdf.py
 FINAL_AUDIT.md
@@ -114,6 +116,11 @@ GIT_SYNC_AUDIT.md
 DOCKER_DEPLOYMENT_DECISION.md
 POST_RESTORE_VERIFICATION.md
 FINAL_COMMIT_PLAN.md
+REPORT_EXPORT_READY.md
+REPORT_SELF_CONTAINED.md
+embed_images.py
+prepare_export.py
+docs/temp/
 
 # =============================================================
 #  macOS

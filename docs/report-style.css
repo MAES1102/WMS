@@ -1,0 +1,561 @@
+/* ============================================================
+   Event-Driven Workflow Management System
+   Software Engineering Project Report — Academic PDF Stylesheet
+   Target renderer : pandoc 3.x  → HTML5 → weasyprint
+   Page size       : A4  (210 × 297 mm)
+   ============================================================ */
+
+
+/* ── Page geometry ──────────────────────────────────────── */
+
+@page {
+    size: A4;
+    margin: 25mm 18mm 28mm 18mm;
+
+    @bottom-center {
+        content: counter(page);
+        font-family: 'Times New Roman', Times, serif;
+        font-size: 9pt;
+        color: #555;
+    }
+
+    @top-right {
+        content: string(section-title);
+        font-family: 'Times New Roman', Times, serif;
+        font-size: 8pt;
+        color: #777;
+        font-style: italic;
+    }
+}
+
+/* No page number or header on the cover page */
+@page :first {
+    margin: 0;
+    @bottom-center { content: none; }
+    @top-right     { content: none; }
+}
+
+
+/* Hide pandoc's auto-generated title block — our cover page handles it */
+#title-block-header {
+    display: none;
+}
+
+
+/* ── Document base ──────────────────────────────────────── */
+
+html, body {
+    font-family: 'Times New Roman', Times, serif;
+    font-size: 11pt;
+    line-height: 1.38;
+    color: #111;
+    background: #fff;
+    margin: 0;
+    padding: 0;
+    text-align: justify;
+    hyphens: auto;
+    -webkit-hyphens: auto;
+}
+
+
+/* ── Cover page ─────────────────────────────────────────── */
+
+.cover-page {
+    page-break-after: always;
+    min-height: 247mm;          /* A4 height minus top/bottom margin */
+    padding: 20mm 25mm;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    text-align: center;
+    background: #fff;
+    border: none;
+}
+
+.cover-institution {
+    font-size: 14pt;
+    font-weight: normal;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    margin-bottom: 2mm;
+    color: #000;
+}
+
+.cover-department {
+    font-size: 10.5pt;
+    color: #333;
+    margin-bottom: 0;
+}
+
+.cover-rule {
+    border: none;
+    border-top: 1.5pt solid #000;
+    margin: 12mm 20mm;
+}
+
+.cover-title-block {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    padding: 8mm 0;
+}
+
+.cover-title {
+    font-size: 22pt;
+    font-weight: bold;
+    line-height: 1.2;
+    margin-bottom: 6mm;
+    color: #000;
+}
+
+.cover-subtitle {
+    font-size: 13pt;
+    font-weight: normal;
+    font-style: italic;
+    line-height: 1.35;
+    color: #222;
+    margin-bottom: 10mm;
+}
+
+.cover-type {
+    font-size: 10.5pt;
+    font-style: italic;
+    color: #444;
+    margin-bottom: 14mm;
+}
+
+.cover-meta-table {
+    width: auto;
+    margin: 0 auto 8mm auto;
+    border: none;
+    font-size: 11pt;
+    line-height: 1.8;
+    page-break-inside: avoid;
+}
+
+.cover-meta-table td {
+    border: none;
+    padding: 0.5mm 3mm;
+    background: transparent;
+    vertical-align: top;
+}
+
+.cover-meta-table .label {
+    font-weight: bold;
+    text-align: right;
+    white-space: nowrap;
+    color: #000;
+}
+
+.cover-meta-table .value {
+    text-align: left;
+    color: #111;
+}
+
+.cover-tech-stack {
+    font-size: 9.5pt;
+    color: #555;
+    font-family: 'Courier New', Courier, monospace;
+    letter-spacing: 0.04em;
+    margin-top: 4mm;
+    margin-bottom: 0;
+}
+
+.cover-year {
+    font-size: 10.5pt;
+    color: #333;
+    margin-top: 2mm;
+}
+
+.cover-rule-bottom {
+    border: none;
+    border-top: 0.75pt solid #888;
+    margin: 8mm 20mm 0 20mm;
+}
+
+
+/* ── Abstract box ───────────────────────────────────────── */
+
+.abstract-box {
+    border: 0.75pt solid #ccc;
+    padding: 4mm 6mm;
+    margin: 4mm 0 6mm 0;
+    background: #fafafa;
+    page-break-inside: avoid;
+}
+
+.abstract-box p {
+    margin: 0;
+    font-size: 10.5pt;
+}
+
+
+/* ── Headings ───────────────────────────────────────────── */
+
+h1, h2, h3, h4, h5 {
+    font-family: 'Times New Roman', Times, serif;
+    color: #000;
+    page-break-after: avoid;
+    orphans: 4;
+    widows: 4;
+}
+
+/* H1 = document title (the single # in REPORT.md) */
+h1 {
+    font-size: 18pt;
+    font-weight: bold;
+    text-align: center;
+    border-bottom: 1.5pt solid #000;
+    padding-bottom: 3mm;
+    margin-top: 8mm;
+    margin-bottom: 4mm;
+    string-set: section-title content(text);
+}
+
+/* H2 = major numbered sections: ## Abstract, ## 1. Introduction, … */
+h2 {
+    font-size: 14pt;
+    font-weight: bold;
+    margin-top: 10mm;
+    margin-bottom: 3mm;
+    border-bottom: 0.5pt solid #888;
+    padding-bottom: 1.5mm;
+    page-break-before: auto;
+    string-set: section-title content(text);
+}
+
+/* Force page break before every top-level numbered section
+   (## 1. … ## 2. … etc.) but not before Abstract or TOC */
+h2[id^="introduction"],
+h2[id^="problem"],
+h2[id^="motivation"],
+h2[id^="objectives"],
+h2[id^="scrum"],
+h2[id^="requirements"],
+h2[id^="product"],
+h2[id^="sprint-1"],
+h2[id^="sprint-2"],
+h2[id^="sprint-3"],
+h2[id^="sprint-4"],
+h2[id^="backlog"],
+h2[id^="requirements-traceability"],
+h2[id^="system-architecture"],
+h2[id^="uml"],
+h2[id^="complex"],
+h2[id^="execution-models"],
+h2[id^="design-patterns"],
+h2[id^="testing"],
+h2[id^="nfr"],
+h2[id^="limitations"],
+h2[id^="future"],
+h2[id^="conclusion"],
+h2[id^="references"],
+h2[id^="appendix"] {
+    page-break-before: always;
+}
+
+/* H3 = subsections */
+h3 {
+    font-size: 12pt;
+    font-weight: bold;
+    margin-top: 6mm;
+    margin-bottom: 2mm;
+}
+
+/* H4 = sub-subsections */
+h4 {
+    font-size: 11pt;
+    font-weight: bold;
+    font-style: italic;
+    margin-top: 4mm;
+    margin-bottom: 1.5mm;
+}
+
+
+/* ── Body text ──────────────────────────────────────────── */
+
+p {
+    margin: 0 0 3.5mm 0;
+    orphans: 3;
+    widows: 3;
+}
+
+a {
+    color: #000;
+    text-decoration: none;
+}
+
+a[href^="http"]::after {
+    content: "";          /* suppress URL printing in PDF */
+}
+
+strong { font-weight: bold; }
+em     { font-style: italic; }
+
+sup, sub {
+    font-size: 7.5pt;
+    line-height: 0;
+    position: relative;
+    vertical-align: baseline;
+}
+sup { top: -0.4em; }
+sub { bottom: -0.25em; }
+
+
+/* ── Lists ──────────────────────────────────────────────── */
+
+ul, ol {
+    margin: 1.5mm 0 3.5mm 0;
+    padding-left: 7mm;
+}
+
+li {
+    margin-bottom: 1.5mm;
+    line-height: 1.38;
+}
+
+li > p {
+    margin: 0 0 1mm 0;
+}
+
+
+/* ── Blockquotes — figure captions & notes ──────────────── */
+
+blockquote {
+    border-left: 2.5pt solid #aaa;
+    margin: 2.5mm 0;
+    padding: 2mm 5mm;
+    background: #f9f9f9;
+    font-size: 9.5pt;
+    color: #333;
+    font-style: italic;
+    page-break-inside: avoid;
+}
+
+blockquote p {
+    margin: 0;
+}
+
+blockquote strong {
+    color: #000;
+}
+
+
+/* ── Code — inline ──────────────────────────────────────── */
+
+code {
+    font-family: 'Courier New', Courier, monospace;
+    font-size: 9pt;
+    background: #efefef;
+    padding: 0pt 2pt;
+    border-radius: 1pt;
+    white-space: nowrap;
+}
+
+
+/* ── Code — block listings ──────────────────────────────── */
+
+pre {
+    background: #f8f8f8;
+    border: 0.5pt solid #ddd;
+    border-left: 2pt solid #bbb;
+    padding: 2.5mm 4mm;
+    font-family: 'Courier New', Courier, monospace;
+    font-size: 7.5pt;
+    line-height: 1.25;
+    page-break-inside: avoid;
+    margin: 2mm 0 4mm 0;
+    white-space: pre-wrap;
+    word-wrap: break-word;
+    overflow-x: auto;
+}
+
+pre code {
+    background: none;
+    padding: 0;
+    font-size: 7.5pt;
+    white-space: pre-wrap;
+}
+
+
+/* ── Tables ─────────────────────────────────────────────── */
+
+table {
+    border-collapse: collapse;
+    width: 100%;
+    font-size: 9pt;
+    line-height: 1.3;
+    margin: 3mm 0 5mm 0;
+    page-break-inside: auto;
+    table-layout: auto;
+}
+
+thead tr {
+    page-break-after: avoid;
+}
+
+th {
+    background-color: #e4e4e4;
+    font-weight: bold;
+    font-family: 'Times New Roman', Times, serif;
+    text-align: left;
+    vertical-align: bottom;
+    padding: 2mm 3mm;
+    border: 0.5pt solid #999;
+    white-space: nowrap;
+}
+
+td {
+    padding: 1.5mm 3mm;
+    border: 0.5pt solid #bbb;
+    vertical-align: top;
+    word-break: break-word;
+}
+
+/* Subtle alternating row shading */
+tbody tr:nth-child(even) td {
+    background-color: #f8f8f8;
+}
+
+/* Compact variant for wide tables (RTM, backlog) */
+table.compact {
+    font-size: 8pt;
+}
+table.compact th,
+table.compact td {
+    padding: 1mm 2mm;
+}
+
+
+/* ── Figures / images ───────────────────────────────────── */
+
+img {
+    max-width: 100%;          /* do not cap below the inline width=100% */
+    width: 100%;
+    display: block;
+    margin: 4mm auto;
+    page-break-inside: avoid;
+}
+
+figure {
+    page-break-inside: avoid;
+    margin: 6mm 0 8mm 0;
+    text-align: center;
+}
+
+figcaption {
+    font-size: 9.5pt;
+    font-style: italic;
+    text-align: center;
+    margin-top: 3mm;
+    color: #444;
+}
+
+/* Alt-text rendered below image by some exporters: italic small */
+img + em {
+    display: block;
+    text-align: center;
+    font-size: 9pt;
+    font-style: italic;
+    color: #444;
+    margin-top: 2mm;
+}
+
+
+/* ── Horizontal rules ───────────────────────────────────── */
+
+hr {
+    border: none;
+    border-top: 0.5pt solid #ccc;
+    margin: 5mm 0;
+}
+
+
+/* ── Table of Contents (auto-generated by pandoc --toc) ─── */
+
+nav#TOC {
+    page-break-after: always;
+    padding-bottom: 6mm;
+}
+
+nav#TOC h2,
+nav#TOC h1 {
+    font-size: 14pt;
+    border-bottom: 0.5pt solid #888;
+    padding-bottom: 2mm;
+    margin-bottom: 4mm;
+    text-align: left;
+    page-break-before: avoid;
+}
+
+nav#TOC ul {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+}
+
+nav#TOC li {
+    margin-bottom: 1.2mm;
+    line-height: 1.4;
+}
+
+nav#TOC a {
+    text-decoration: none;
+    color: #000;
+}
+
+/* Level 1 TOC entries (## sections) */
+nav#TOC > ul > li {
+    font-weight: bold;
+    font-size: 10.5pt;
+    margin-top: 2.5mm;
+}
+
+/* Level 2 TOC entries (### subsections) */
+nav#TOC > ul > li > ul > li {
+    font-weight: normal;
+    font-size: 9.5pt;
+    padding-left: 5mm;
+    margin-top: 0;
+}
+
+/* Level 3 TOC entries */
+nav#TOC > ul > li > ul > li > ul > li {
+    font-size: 8.5pt;
+    padding-left: 10mm;
+}
+
+
+/* ── Footnotes ──────────────────────────────────────────── */
+
+.footnote {
+    font-size: 8.5pt;
+    color: #444;
+}
+
+
+/* ── Print / page break helpers ─────────────────────────── */
+
+.page-break {
+    page-break-before: always;
+}
+
+.no-break {
+    page-break-inside: avoid;
+}
+
+/* Keep definition lists together */
+dl {
+    page-break-inside: avoid;
+}
+
+dt {
+    font-weight: bold;
+    margin-top: 2mm;
+}
+
+dd {
+    margin-left: 6mm;
+    margin-bottom: 1.5mm;
+}

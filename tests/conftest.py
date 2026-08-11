@@ -9,6 +9,7 @@ from app.db import Base
 from app.main import app
 from app.routes import get_db
 
+# изоляция тестов: in-memory SQLite, StaticPool — все соединения видят одну БД
 # In-memory SQLite — StaticPool ensures every connection shares the same DB.
 _ENGINE = create_engine(
     "sqlite://",
@@ -30,8 +31,9 @@ def client():
         finally:
             db.close()
 
+    # подмена get_db (DI): тесты идут по тестовой БД, не трогая продакшен
     app.dependency_overrides[get_db] = _override_get_db
     with TestClient(app) as c:
         yield c
     app.dependency_overrides.clear()
-    Base.metadata.drop_all(bind=_ENGINE)
+    Base.metadata.drop_all(bind=_ENGINE)  # чистая БД после каждого теста (независимость)

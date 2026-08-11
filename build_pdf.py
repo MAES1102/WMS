@@ -5,8 +5,10 @@ WMS Report PDF Builder
 1. Renders every PlantUML block  → docs/figures/fig_NN.png   (java plantuml.jar)
 2. Renders every Mermaid block   → docs/figures/fig_NN.png   (mmdc / Chrome)
 3. Generates pyreverse diagrams  → docs/figures/pyreverse_*.png
-4. Writes docs/REPORT_RENDER.md  (code blocks replaced by image refs)
-5. Runs pandoc + weasyprint      → REPORT_FINAL.pdf
+4. Writes docs/REPORT_RENDER.md  (diagram fences replaced by image refs)
+5. Runs pandoc + weasyprint      → REPORT_FINAL_UPDATED.pdf
+
+CSS: docs/report-style.css  (IEEE/ACM academic style, A4, page numbers)
 """
 
 import json
@@ -17,21 +19,23 @@ import sys
 from pathlib import Path
 
 # ── Paths ─────────────────────────────────────────────────────────────────────
-BASE         = Path(__file__).parent.resolve()
-REPORT_MD    = BASE / "docs" / "REPORT.md"
-FIGURES_DIR  = BASE / "docs" / "figures"
-RENDER_MD    = BASE / "docs" / "REPORT_RENDER.md"
-FINAL_PDF    = BASE / "REPORT_FINAL.pdf"
-PLANTUML_JAR = BASE / "plantuml.jar"
-MMDC_BIN     = BASE / "node_modules" / ".bin" / "mmdc"
-VENV_BIN     = BASE / "venv" / "bin"
-WEASYPRINT   = VENV_BIN / "weasyprint"
-PYREVERSE    = VENV_BIN / "pyreverse"
-PANDOC       = shutil.which("pandoc")
+BASE          = Path(__file__).parent.resolve()          # project root
+REPORT_MD     = BASE / "docs" / "REPORT.md"
+FIGURES_DIR   = BASE / "docs" / "figures"
+RENDER_MD     = BASE / "docs" / "REPORT_RENDER.md"
+CSS_FILE      = BASE / "docs" / "report-style.css"
+FINAL_PDF     = BASE / "REPORT_FINAL_SUBMISSION.pdf"
+PLANTUML_JAR  = BASE / "plantuml.jar"
+MMDC_BIN      = BASE / "node_modules" / ".bin" / "mmdc"
+VENV_BIN      = BASE / "venv" / "bin"
+WEASYPRINT    = VENV_BIN / "weasyprint"
+PYREVERSE     = VENV_BIN / "pyreverse"
+PANDOC        = shutil.which("pandoc")
 PUPPETEER_CFG = BASE / "puppeteer-config.json"
-CHROME_PATH  = "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome"
+CHROME_PATH   = "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome"
 
 FIGURES_DIR.mkdir(parents=True, exist_ok=True)
+
 
 # ── Tool checks ───────────────────────────────────────────────────────────────
 def check_tools():
@@ -72,7 +76,10 @@ def render_plantuml(source: str, name: str) -> Path:
         capture_output=True, text=True
     )
     if r.returncode != 0 or not png_file.exists():
-        print(f"    ✗ PlantUML failed for {name}: {r.stderr[:300]}")
+        if png_file.exists():
+            print(f"    ~ {png_file.name}  (render failed, using cached PNG)")
+        else:
+            print(f"    ✗ PlantUML failed for {name}: {r.stderr[:200]}")
     else:
         print(f"    ✓ {png_file.name}  ({png_file.stat().st_size:,} bytes)")
     return png_file
@@ -93,7 +100,10 @@ def render_mermaid(source: str, name: str) -> Path:
     ]
     r = subprocess.run(cmd, capture_output=True, text=True, cwd=str(BASE), timeout=60)
     if r.returncode != 0 or not png_file.exists():
-        print(f"    ✗ Mermaid failed for {name}: {r.stderr[:300]}")
+        if png_file.exists():
+            print(f"    ~ {png_file.name}  (render failed, using cached PNG)")
+        else:
+            print(f"    ✗ Mermaid failed for {name}: {r.stderr[:200]}")
     else:
         print(f"    ✓ {png_file.name}  ({png_file.stat().st_size:,} bytes)")
     return png_file
@@ -101,8 +111,17 @@ def render_mermaid(source: str, name: str) -> Path:
 
 # ── Figure-number extractor ───────────────────────────────────────────────────
 def extract_fig_number(preceding: str):
-    m = re.search(r'[Ff]igure\s+(\d+)', preceding)
-    return int(m.group(1)) if m else None
+    # Match caption-style bold references (e.g. **Figure 9 —) using the LAST
+    # match so the figure's own caption wins over cross-references inside
+    # diagram content that appears earlier in the look-back window.
+    matches = list(re.finditer(r'\*\*Figure\s+(\d+)', preceding))
+    if matches:
+        return int(matches[-1].group(1))
+    # Fallback: plain "Figure N —" with em/en-dash (also caption format)
+    matches = list(re.finditer(r'Figure\s+(\d+)\s*[—–]', preceding))
+    if matches:
+        return int(matches[-1].group(1))
+    return None
 
 
 # ── Main processing loop ──────────────────────────────────────────────────────
@@ -110,9 +129,8 @@ def process_report():
     text = REPORT_MD.read_text(encoding="utf-8")
     pattern = re.compile(r'```(plantuml|mermaid)\n(.*?)```', re.DOTALL)
 
-    auto_idx    = 0
-    assigned    = {}   # fig_number → name
-    rendered    = []
+    auto_idx = 0
+    rendered = []
 
     def replacer(m: re.Match) -> str:
         nonlocal auto_idx
@@ -120,7 +138,8 @@ def process_report():
         source = m.group(2)
         start  = m.start()
 
-        preceding = text[max(0, start - 500): start]
+        # 1200-char window to capture long caption lines (some exceed 500 chars)
+        preceding = text[max(0, start - 1200): start]
         fig_n = extract_fig_number(preceding)
 
         if fig_n is not None:
@@ -137,7 +156,6 @@ def process_report():
             out = render_mermaid(source, name)
 
         rendered.append(out)
-        assigned[name] = out
 
         # Image path relative to docs/ (where REPORT_RENDER.md sits)
         rel = out.relative_to(FIGURES_DIR.parent)
@@ -164,51 +182,35 @@ def run_pyreverse():
 
 
 # ── PDF generation ────────────────────────────────────────────────────────────
-CSS = """\
-body { font-family: 'Times New Roman', serif; font-size: 11pt;
-       max-width: 170mm; margin: auto; line-height: 1.4; }
-h1   { font-size: 16pt; margin-top: 2em; }
-h2   { font-size: 14pt; margin-top: 1.6em; border-bottom: 1px solid #ccc; }
-h3   { font-size: 12pt; margin-top: 1.2em; }
-table { border-collapse: collapse; width: 100%; font-size: 9pt;
-        margin: 1em 0; page-break-inside: avoid; }
-th, td { border: 1px solid #999; padding: 3px 6px; }
-th   { background: #f0f0f0; }
-pre  { background: #f8f8f8; border: 1px solid #ddd; padding: 8px;
-       font-size: 8pt; overflow-x: auto; page-break-inside: avoid; }
-code { font-family: 'Courier New', monospace; font-size: 8.5pt; }
-img  { max-width: 100%; display: block; margin: 1em auto;
-       page-break-inside: avoid; }
-blockquote { border-left: 3px solid #aaa; margin-left: 0;
-             padding-left: 1em; color: #444; }
-"""
-
 def generate_pdf(render_md: Path):
     print("\n── PDF generation ──────────────────────────────────────────────────")
     if not PANDOC:
         print("  ✗ pandoc not found"); return False
 
-    css_file = BASE / "docs" / "report.css"
-    css_file.write_text(CSS)
+    if not CSS_FILE.exists():
+        print(f"  ✗ CSS not found: {CSS_FILE}"); return False
 
-    # Step 1: pandoc md → html
     html_file = BASE / "docs" / "REPORT_RENDER.html"
-    r1 = subprocess.run(
-        [PANDOC, str(render_md),
-         "--standalone",
-         "--embed-resources",
-         "--resource-path", str(FIGURES_DIR.parent),
-         "--css", str(css_file),
-         "--metadata", "pagetitle=WMS Final Report",
-         "-t", "html5",
-         "-o", str(html_file)],
-        capture_output=True, text=True, cwd=str(BASE / "docs")
-    )
+
+    # pandoc: markdown+raw_html passes the cover-page <div> block through intact
+    pandoc_cmd = [
+        PANDOC, str(render_md),
+        "--standalone",
+        "--embed-resources",
+        "--from", "markdown+raw_html",
+        "--to", "html5",
+        "--highlight-style", "kate",
+        "--resource-path", str(FIGURES_DIR.parent),
+        "--css", str(CSS_FILE),
+        "--metadata", "pagetitle=WMS Final Report — Yermek Aubayev",
+        "--metadata", "lang=en",
+        "-o", str(html_file),
+    ]
+    r1 = subprocess.run(pandoc_cmd, capture_output=True, text=True, cwd=str(BASE / "docs"))
     if r1.returncode != 0:
         print(f"  ✗ pandoc html: {r1.stderr[:500]}"); return False
     print(f"  ✓ HTML: {html_file}  ({html_file.stat().st_size:,} bytes)")
 
-    # Step 2: weasyprint html → pdf
     r2 = subprocess.run(
         [str(WEASYPRINT), str(html_file), str(FINAL_PDF)],
         capture_output=True, text=True
@@ -224,12 +226,11 @@ def generate_pdf(render_md: Path):
 # ── Entry point ───────────────────────────────────────────────────────────────
 def main():
     print("═" * 67)
-    print("  WMS Report PDF Builder")
+    print("  WMS Report PDF Builder  →  REPORT_FINAL_SUBMISSION.pdf")
     print("═" * 67)
 
     print("\n── Tool verification ───────────────────────────────────────────────")
-    if not check_tools():
-        print("\nAborting: missing tools."); sys.exit(1)
+    check_tools()   # informational only — build continues regardless
 
     # Write puppeteer config
     PUPPETEER_CFG.write_text(
@@ -241,19 +242,18 @@ def main():
 
     RENDER_MD.write_text(new_text, encoding="utf-8")
     print(f"\n  ✓ Rendered markdown → {RENDER_MD}")
-    print(f"  ✓ Total diagrams: {len(rendered)}")
+    print(f"  ✓ Total diagrams processed: {len(rendered)}")
 
     run_pyreverse()
 
     ok = generate_pdf(RENDER_MD)
 
-    print("\n═" * 67)
+    print("\n" + "═" * 67)
     print("  SUMMARY")
     print("─" * 67)
-    print(f"  Figures dir   : {FIGURES_DIR}")
-    print(f"  Rendered MD   : {RENDER_MD}")
-    print(f"  Final PDF     : {FINAL_PDF}")
-    print(f"  Diagrams done : {len(rendered)}")
+    print(f"  CSS       : {CSS_FILE}")
+    print(f"  Figures   : {FIGURES_DIR}")
+    print(f"  Final PDF : {FINAL_PDF}")
     all_ok = True
     for p in sorted(FIGURES_DIR.glob("fig_*.png")):
         ok_flag = p.stat().st_size > 500

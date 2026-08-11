@@ -3,193 +3,418 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Workflow Automation</title>
+  <title>Event-Driven Workflow Management System</title>
   <script src="https://cdn.tailwindcss.com"></script>
 </head>
 <body class="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-indigo-950 text-slate-100 antialiased">
-  <div class="max-w-5xl mx-auto px-4 py-10 pb-16">
-    <header class="text-center mb-8">
-      <p class="text-indigo-400 text-sm font-semibold tracking-wide uppercase mb-2">Dashboard</p>
-      <h1 class="text-3xl sm:text-4xl font-bold text-white tracking-tight">Workflow System</h1>
-      <p class="text-slate-400 mt-3 text-sm max-w-lg mx-auto">Interactive execution view, timeline, and graph — filtered by your selected workflow.</p>
+  <div class="max-w-6xl mx-auto px-4 py-10 pb-16">
+
+    <!-- ═══════════════════════════════════════════
+         1. HEADER
+    ═══════════════════════════════════════════ -->
+    <header class="text-center mb-10">
+      <p class="text-indigo-400 text-xs font-semibold tracking-widest uppercase mb-3">Software Engineering Project</p>
+      <h1 class="text-3xl sm:text-4xl font-bold text-white tracking-tight mb-3">
+        Event-Driven Workflow Management System
+      </h1>
+      <p class="text-slate-400 text-sm max-w-xl mx-auto mb-6">
+        Design, execute and monitor graph-based business workflows
+      </p>
+      <div class="flex flex-wrap justify-center gap-2">
+        <span class="inline-flex items-center gap-1.5 rounded-full bg-emerald-500/15 border border-emerald-500/30 text-emerald-300 text-xs font-medium px-3 py-1">✓ Graph Execution</span>
+        <span class="inline-flex items-center gap-1.5 rounded-full bg-sky-500/15 border border-sky-500/30 text-sky-300 text-xs font-medium px-3 py-1">✓ Conditional Branching</span>
+        <span class="inline-flex items-center gap-1.5 rounded-full bg-amber-500/15 border border-amber-500/30 text-amber-300 text-xs font-medium px-3 py-1">✓ Retry Loops</span>
+        <span class="inline-flex items-center gap-1.5 rounded-full bg-violet-500/15 border border-violet-500/30 text-violet-300 text-xs font-medium px-3 py-1">✓ Event Driven</span>
+        <span class="inline-flex items-center gap-1.5 rounded-full bg-orange-500/15 border border-orange-500/30 text-orange-300 text-xs font-medium px-3 py-1">✓ Orchestration</span>
+        <span class="inline-flex items-center gap-1.5 rounded-full bg-cyan-500/15 border border-cyan-500/30 text-cyan-300 text-xs font-medium px-3 py-1">✓ Choreography</span>
+      </div>
     </header>
 
-    <section class="mb-8 rounded-xl border border-slate-700/50 bg-slate-900/70 shadow-xl p-6">
-      <h2 class="text-sm font-semibold text-slate-400 uppercase tracking-wider mb-4">Current context</h2>
-      <div class="grid sm:grid-cols-2 gap-6">
-        <div>
-          <label for="sel-current-user" class="block text-xs font-medium text-slate-400 mb-1">Current User</label>
-          <select id="sel-current-user" class="w-full rounded-lg bg-slate-800 border border-slate-600 px-3 py-2.5 text-sm text-white focus:outline-none focus:ring-2 focus:ring-indigo-500">
-            <option value="">Select user…</option>
-          </select>
-          <p id="ctx-user-line" class="mt-2 text-sm text-white font-medium"></p>
+    <div class="space-y-5">
+
+      <!-- ══════════════════════════════════════════════════════
+           A. WORKFLOW EXAMPLES
+      ══════════════════════════════════════════════════════ -->
+      <section class="rounded-2xl bg-slate-900/60 border border-slate-700/50 shadow-xl p-6">
+        <div class="flex items-center gap-2 mb-1">
+          <span class="flex h-7 w-7 items-center justify-center rounded-lg bg-indigo-500/20 text-indigo-300 text-xs font-bold">A</span>
+          <h2 class="text-base font-semibold text-white">Workflow Examples</h2>
         </div>
-        <div>
-          <label for="sel-workflow" class="block text-xs font-medium text-slate-400 mb-1">Current Workflow</label>
-          <select id="sel-workflow" class="w-full rounded-lg bg-slate-800 border border-slate-600 px-3 py-2.5 text-sm text-white focus:outline-none focus:ring-2 focus:ring-cyan-500">
-            <option value="">Select workflow…</option>
-          </select>
-          <p id="ctx-workflow-line" class="mt-2 text-sm text-slate-300"></p>
+        <p class="text-xs text-slate-400 mb-4">Select a demo workflow to load its execution graph.</p>
+        <div id="workflow-cards" class="text-slate-500 text-sm italic py-2">Loading workflows…</div>
+        <!-- Primary JS data-binding elements (first in DOM = what getElementById returns) -->
+        <div class="hidden" aria-hidden="true">
+          <select id="sel-current-user"><option value="">Select user…</option></select>
+          <select id="sel-workflow"><option value="">Select workflow…</option></select>
+          <p id="ctx-user-line"></p>
+          <p id="ctx-workflow-line"></p>
+          <p id="current-user-email"></p>
+          <p id="hint-user"></p>
+          <p id="hint-workflow"></p>
+        </div>
+      </section>
+
+      <!-- ══════════════════════════════════════════════════════
+           B. MAIN DEMO AREA — Graph (70 %) + Details (30 %)
+      ══════════════════════════════════════════════════════ -->
+      <div class="grid grid-cols-1 lg:grid-cols-3 gap-4">
+
+        <!-- LEFT: Workflow Graph -->
+        <div class="lg:col-span-2 rounded-2xl bg-slate-900/60 border border-slate-700/50 shadow-xl p-5">
+          <div class="flex items-start justify-between mb-3">
+            <div class="flex items-center gap-2">
+              <span class="flex h-7 w-7 items-center justify-center rounded-lg bg-cyan-500/20 text-cyan-300 text-xs font-bold">B</span>
+              <h2 class="text-base font-semibold text-white">Workflow Graph</h2>
+            </div>
+            <div class="flex flex-wrap items-center gap-2 text-xs text-slate-400">
+              <span class="flex items-center gap-1"><span class="inline-block w-2.5 h-2.5 rounded-full bg-gray-400"></span>Pending</span>
+              <span class="flex items-center gap-1"><span class="inline-block w-2.5 h-2.5 rounded-full bg-yellow-400"></span>Running</span>
+              <span class="flex items-center gap-1"><span class="inline-block w-2.5 h-2.5 rounded-full bg-green-500"></span>Done</span>
+              <span class="flex items-center gap-1"><span class="inline-block w-2.5 h-2.5 rounded-full bg-red-500"></span>Failed</span>
+            </div>
+          </div>
+          <p id="graph-mode-label" class="text-xs text-slate-500 mb-2">Workflow definition</p>
+          <div class="w-full overflow-x-auto">
+            <canvas id="graphCanvas" width="600" height="320" class="w-full bg-gray-900 rounded-xl h-auto"></canvas>
+          </div>
+          <div class="flex flex-wrap gap-4 mt-2 text-xs text-slate-500">
+            <span class="flex items-center gap-1.5"><span class="inline-block w-5 h-0.5 bg-green-500"></span>SUCCESS</span>
+            <span class="flex items-center gap-1.5"><span class="inline-block w-5 h-0.5 bg-red-500"></span>FAILURE</span>
+            <span class="flex items-center gap-1.5"><span class="inline-block w-5 h-0.5 bg-gray-400"></span>ALWAYS</span>
+            <span class="flex items-center gap-1.5"><span class="inline-block w-4 border-t border-dashed border-gray-400"></span>Loop</span>
+          </div>
+        </div>
+
+        <!-- RIGHT: Details Panel -->
+        <div class="lg:col-span-1 flex flex-col gap-4">
+
+          <!-- Workflow Definition stats (populated by renderWorkflowSummary) -->
+          <div class="rounded-2xl bg-slate-900/60 border border-slate-700/50 shadow-xl p-4">
+            <div id="workflow-summary">
+              <p class="text-slate-500 text-sm italic">Select a workflow to view its definition.</p>
+            </div>
+          </div>
+
+          <!-- Current Execution -->
+          <div class="rounded-2xl bg-slate-900/60 border border-slate-700/50 shadow-xl p-4 flex-1">
+            <div class="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">Current Execution</div>
+            <div class="w-full bg-gray-700 rounded-full h-2 mb-1">
+              <div id="progressBar" class="bg-green-500 h-2 rounded-full transition-all duration-300 ease-out" style="width:0%"></div>
+            </div>
+            <p id="progressLabel" class="text-xs text-slate-500 mb-3">0 / 0 tasks done</p>
+            <div id="runtime-monitor-steps">
+              <p class="text-slate-500 text-sm italic">Select a workflow above.</p>
+            </div>
+            <div class="mt-3 pt-3 border-t border-slate-700/50">
+              <div class="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">Active Transition</div>
+              <div id="current-transition-panel">
+                <p class="text-slate-500 text-xs italic">Waiting for execution…</p>
+              </div>
+            </div>
+            <details class="mt-3">
+              <summary class="text-xs font-medium text-slate-500 hover:text-slate-300 cursor-pointer select-none">Raw timeline log ▼</summary>
+              <div id="timeline" class="bg-black text-sm p-3 rounded-xl h-36 overflow-y-auto font-mono mt-2"></div>
+            </details>
+          </div>
+
         </div>
       </div>
-      <p id="current-user-email" class="mt-4 text-xs text-slate-500 hidden"></p>
-      <p id="hint-user" class="hidden"></p>
-      <p id="hint-workflow" class="hidden"></p>
-    </section>
 
-    <div class="space-y-6">
-      <section class="rounded-xl bg-slate-900/60 border border-slate-700/50 shadow-xl p-6">
-        <h2 class="text-lg font-semibold text-white mb-4 flex items-center gap-2">
-          <span class="flex h-8 w-8 items-center justify-center rounded-lg bg-indigo-500/20 text-indigo-300 text-sm font-bold">1</span>
-          Create User
-        </h2>
-        <div class="space-y-3 max-w-md">
-          <input id="u-email" type="email" placeholder="Email" class="w-full rounded-lg bg-slate-800/80 border border-slate-600 px-4 py-2.5 text-sm text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500" />
-          <input id="u-password" type="password" placeholder="Password" class="w-full rounded-lg bg-slate-800/80 border border-slate-600 px-4 py-2.5 text-sm text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500" />
-          <button type="button" id="btn-user" class="rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white font-medium py-2.5 px-4 text-sm transition">Create User</button>
+      <!-- ══════════════════════════════════════════════════════
+           C. EXECUTION ENGINE PATTERN
+      ══════════════════════════════════════════════════════ -->
+      <section class="rounded-2xl bg-slate-900/60 border border-slate-700/50 shadow-xl p-6">
+        <div class="flex items-center gap-2 mb-1">
+          <span class="flex h-7 w-7 items-center justify-center rounded-lg bg-amber-500/20 text-amber-300 text-xs font-bold">C</span>
+          <h2 class="text-base font-semibold text-white">Execution Engine Pattern</h2>
+        </div>
+        <p class="text-xs text-slate-400 mb-4">Choose coordination architecture</p>
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-5 max-w-xl">
+          <label for="exec-mode-orch" class="cursor-pointer block">
+            <input type="radio" name="exec-mode" id="exec-mode-orch" value="orchestration" class="peer sr-only" checked />
+            <div class="rounded-xl border-2 border-slate-700 peer-checked:border-amber-500 peer-checked:bg-amber-900/20 bg-slate-800/50 hover:bg-slate-800 p-4 transition-all duration-150 h-full">
+              <div class="flex items-center gap-2 mb-2">
+                <span class="text-lg">⚙️</span>
+                <span class="font-semibold text-white text-sm">Orchestration</span>
+              </div>
+              <p class="text-xs text-slate-400 leading-snug">Central controller coordinates workflow execution.</p>
+            </div>
+          </label>
+          <label for="exec-mode-choreo" class="cursor-pointer block">
+            <input type="radio" name="exec-mode" id="exec-mode-choreo" value="choreography" class="peer sr-only" />
+            <div class="rounded-xl border-2 border-slate-700 peer-checked:border-cyan-500 peer-checked:bg-cyan-900/20 bg-slate-800/50 hover:bg-slate-800 p-4 transition-all duration-150 h-full">
+              <div class="flex items-center gap-2 mb-2">
+                <span class="text-lg">📡</span>
+                <span class="font-semibold text-white text-sm">Choreography</span>
+              </div>
+              <p class="text-xs text-slate-400 leading-snug">Tasks communicate through events and react independently.</p>
+            </div>
+          </label>
+        </div>
+        <div class="flex flex-wrap items-center gap-3">
+          <button type="button" id="btn-start-execution"
+            class="w-full sm:w-auto rounded-xl bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed text-white font-semibold py-3 px-8 text-base transition shadow-lg">
+            ▶ Start Workflow Execution
+          </button>
+          <button type="button" id="btn-reset-execution"
+            class="w-full sm:w-auto rounded-xl bg-slate-700 hover:bg-slate-600 disabled:opacity-50 disabled:cursor-not-allowed text-slate-300 hover:text-white font-semibold py-3 px-6 text-base transition">
+            ↺ Reset Execution
+          </button>
         </div>
       </section>
 
-      <section class="rounded-xl bg-slate-900/60 border border-slate-700/50 shadow-xl p-6">
-        <h2 class="text-lg font-semibold text-white mb-4 flex items-center gap-2">
-          <span class="flex h-8 w-8 items-center justify-center rounded-lg bg-violet-500/20 text-violet-300 text-sm font-bold">2</span>
-          Create Workflow
-        </h2>
-        <p class="text-xs text-slate-400 mb-3">Uses the <strong class="text-slate-300">current user</strong> above.</p>
-        <div class="space-y-3 max-w-md">
-          <input id="w-name" type="text" placeholder="Workflow name" class="w-full rounded-lg bg-slate-800/80 border border-slate-600 px-4 py-2.5 text-sm text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-violet-500" />
-          <button type="button" id="btn-workflow" class="rounded-lg bg-violet-600 hover:bg-violet-500 text-white font-medium py-2.5 px-4 text-sm transition">Create Workflow</button>
+      <!-- ══════════════════════════════════════════════════════
+           D. EXECUTION HISTORY  (WorkflowRun records)
+      ══════════════════════════════════════════════════════ -->
+      <section class="rounded-2xl bg-slate-900/60 border border-slate-700/50 shadow-xl p-6">
+        <div class="flex items-center gap-2 mb-1">
+          <span class="flex h-7 w-7 items-center justify-center rounded-lg bg-teal-500/20 text-teal-300 text-xs font-bold">D</span>
+          <h2 class="text-base font-semibold text-white">Execution History</h2>
         </div>
-      </section>
-
-      <section class="rounded-xl bg-slate-900/60 border border-slate-700/50 shadow-xl p-6">
-        <h2 class="text-lg font-semibold text-white mb-4 flex items-center gap-2">
-          <span class="flex h-8 w-8 items-center justify-center rounded-lg bg-cyan-500/20 text-cyan-300 text-sm font-bold">3</span>
-          Create Task
-        </h2>
-        <p class="text-xs text-slate-400 mb-3">Tasks attach to the <strong class="text-slate-300">current workflow</strong>.</p>
-        <div class="space-y-3 max-w-md">
-          <input id="t-name" type="text" placeholder="Task name" class="w-full rounded-lg bg-slate-800/80 border border-slate-600 px-4 py-2.5 text-sm text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-cyan-500" />
-          <input id="t-order" type="number" min="0" placeholder="Order" class="w-full rounded-lg bg-slate-800/80 border border-slate-600 px-4 py-2.5 text-sm text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-cyan-500" />
-          <button type="button" id="btn-task" class="rounded-lg bg-cyan-600 hover:bg-cyan-500 text-white font-medium py-2.5 px-4 text-sm transition">Create Task</button>
-        </div>
-      </section>
-
-      <section class="rounded-xl bg-slate-900/60 border border-slate-700/50 shadow-xl p-6">
-        <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-4">
-          <h2 class="text-lg font-semibold text-white flex items-center gap-2">
-            <span class="flex h-8 w-8 items-center justify-center rounded-lg bg-emerald-500/20 text-emerald-300 text-sm font-bold">4</span>
-            Tasks <span class="text-slate-400 text-sm font-normal">(current workflow)</span>
-          </h2>
-          <button type="button" id="btn-refresh-tasks" class="shrink-0 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-medium py-2 px-4 text-sm transition">Refresh</button>
-        </div>
-        <div class="overflow-x-auto rounded-lg border border-slate-700">
+        <p class="text-xs text-slate-400 mb-4">Every execution creates an independent <code class="text-indigo-300 bg-indigo-500/10 rounded px-1">WorkflowRun</code> record — runs are isolated and never overwrite each other.</p>
+        <div class="overflow-x-auto rounded-xl border border-slate-700/50">
           <table class="min-w-full text-left text-sm">
             <thead>
-              <tr class="border-b border-slate-600 bg-slate-800/80">
-                <th class="px-3 py-3 font-semibold text-slate-300 whitespace-nowrap">ID</th>
-                <th class="px-3 py-3 font-semibold text-slate-300 whitespace-nowrap">Name</th>
-                <th class="px-3 py-3 font-semibold text-slate-300 whitespace-nowrap">Order</th>
-                <th class="px-3 py-3 font-semibold text-slate-300 whitespace-nowrap">Status</th>
-                <th class="px-3 py-3 font-semibold text-slate-300 whitespace-nowrap">Actions</th>
+              <tr class="border-b border-slate-700 bg-slate-800/60">
+                <th class="px-4 py-2.5 font-semibold text-slate-400 text-xs uppercase tracking-wider">Run ID</th>
+                <th class="px-4 py-2.5 font-semibold text-slate-400 text-xs uppercase tracking-wider">Engine</th>
+                <th class="px-4 py-2.5 font-semibold text-slate-400 text-xs uppercase tracking-wider">Status</th>
+                <th class="px-4 py-2.5 font-semibold text-slate-400 text-xs uppercase tracking-wider hidden sm:table-cell">Started</th>
               </tr>
             </thead>
-            <tbody id="tasks-body" class="divide-y divide-slate-700/60"></tbody>
+            <tbody id="run-history-body">
+              <tr><td colspan="4" class="px-4 py-5 text-center text-slate-500 text-sm italic">Select a workflow to see its execution history.</td></tr>
+            </tbody>
           </table>
         </div>
       </section>
 
-      <section class="rounded-xl bg-slate-900/60 border border-slate-700/50 shadow-xl p-6">
-        <h2 class="text-lg font-semibold text-white mb-2 flex items-center gap-2">
-          <span class="flex h-8 w-8 items-center justify-center rounded-lg bg-teal-500/20 text-teal-300 text-sm font-bold">5</span>
-          Live execution
-        </h2>
-        <p class="text-xs text-slate-400 mb-4">Timeline, progress, and graph update during polling (every 1s while a run is active).</p>
-        <h3 class="text-sm font-medium text-slate-300 mb-2">Execution Timeline</h3>
-        <div id="timeline" class="bg-black text-sm p-4 rounded-xl h-60 overflow-y-auto font-mono"></div>
-        <h3 class="text-sm font-medium text-slate-300 mt-6 mb-1">Event Stream</h3>
-        <p class="text-xs text-slate-500 mb-2">Simulated Kafka Event Stream</p>
-        <div id="eventStream" class="bg-black text-xs p-4 rounded-xl h-60 overflow-y-auto"></div>
-        <h3 class="text-sm font-medium text-slate-300 mt-6 mb-2">Backend Logs</h3>
-        <div id="logs" class="bg-black text-xs p-4 rounded-xl h-60 overflow-y-auto font-mono"></div>
-        <div class="w-full bg-gray-700 rounded-full h-4 mt-4">
-          <div id="progressBar" class="bg-green-500 h-4 rounded-full transition-all duration-300 ease-out" style="width:0%"></div>
-        </div>
-        <p id="progressLabel" class="text-xs text-slate-500 mt-2">0 / 0 tasks done</p>
-        <h3 class="text-sm font-medium text-slate-300 mt-6 mb-2">Workflow graph</h3>
-        <div class="w-full overflow-x-auto">
-          <canvas id="graphCanvas" width="600" height="200" class="mt-2 bg-gray-900 rounded-xl max-w-full h-auto"></canvas>
-        </div>
-      </section>
-
-      <section class="rounded-xl bg-slate-900/60 border border-slate-700/50 shadow-xl p-6">
-        <h2 class="text-lg font-semibold text-white mb-2 flex items-center gap-2">
-          <span class="flex h-8 w-8 items-center justify-center rounded-lg bg-fuchsia-500/20 text-fuchsia-300 text-sm font-bold">6</span>
-          System Architecture
-        </h2>
-        <p class="text-xs text-slate-400 mb-1 text-center">Microservices view (simulated states during execution)</p>
-        <div id="architecture" class="mt-6 p-6 bg-gray-900 rounded-xl text-center text-sm">
-          <div class="flex flex-col items-stretch gap-1 max-w-md mx-auto">
-            <div id="arch-user" class="arch-box w-full px-4 py-3 rounded-xl border transition-colors duration-300 bg-slate-800 border-slate-600 text-slate-300">
-              <div class="font-semibold">User</div>
-              <div class="text-xs mt-1 text-slate-400"><span data-arch-status>IDLE</span></div>
-            </div>
-            <div class="text-slate-500 py-0.5 text-center select-none">↓</div>
-            <div id="arch-gateway" class="arch-box w-full px-4 py-3 rounded-xl border transition-colors duration-300 bg-slate-800 border-slate-600 text-slate-300">
-              <div class="font-semibold">API Gateway</div>
-              <div class="text-xs mt-1 text-slate-400"><span data-arch-status>IDLE</span> · <span class="text-slate-500">REST</span></div>
-            </div>
-            <div class="text-slate-500 py-0.5 text-center select-none">↓</div>
-            <div id="arch-workflow" class="arch-box w-full px-4 py-3 rounded-xl border transition-colors duration-300 bg-slate-800 border-slate-600 text-slate-300">
-              <div class="font-semibold">Workflow Service</div>
-              <div class="text-xs mt-1 text-slate-400"><span data-arch-status>IDLE</span> · <span class="text-slate-500">REST</span></div>
-            </div>
-            <div class="text-slate-500 py-0.5 text-center select-none">↓</div>
-            <div id="arch-task" class="arch-box w-full px-4 py-3 rounded-xl border transition-colors duration-300 bg-slate-800 border-slate-600 text-slate-300">
-              <div class="font-semibold">Task Service</div>
-              <div class="text-xs mt-1 text-slate-400"><span data-arch-status>IDLE</span></div>
-            </div>
-            <div class="text-slate-500 py-0.5 text-center select-none">↓</div>
-            <div id="arch-event" class="arch-box w-full px-4 py-3 rounded-xl border transition-colors duration-300 bg-slate-800 border-slate-600 text-slate-300">
-              <div class="font-semibold">Event Service (Kafka)</div>
-              <div class="text-xs mt-1 text-slate-400"><span data-arch-status>IDLE</span> · <span class="text-slate-500">Events</span></div>
+      <!-- ══════════════════════════════════════════════════════
+           ADVANCED VIEW  (collapsed — engineering depth)
+      ══════════════════════════════════════════════════════ -->
+      <details class="rounded-2xl bg-slate-900/60 border border-slate-700/50 shadow-xl overflow-hidden">
+        <summary class="flex items-center justify-between p-6 cursor-pointer select-none list-none">
+          <div class="flex items-center gap-3">
+            <span class="text-lg">🔬</span>
+            <div>
+              <h2 class="text-base font-semibold text-white">Advanced View</h2>
+              <p class="text-xs text-slate-500 mt-0.5">Event Timeline · Architecture · Custom Workflow · Management · Debug</p>
             </div>
           </div>
-        </div>
-      </section>
+          <span class="text-slate-400 text-sm select-none">▼ expand</span>
+        </summary>
 
-      <section class="rounded-xl bg-slate-900/60 border border-slate-700/50 shadow-xl p-6">
-        <h2 class="text-lg font-semibold text-white mb-4 flex items-center gap-2">
-          <span class="flex h-8 w-8 items-center justify-center rounded-lg bg-amber-500/20 text-amber-300 text-sm font-bold">7</span>
-          Execute
-        </h2>
-        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 max-w-xl">
-          <button type="button" id="btn-orch" class="rounded-lg bg-amber-600 hover:bg-amber-500 text-white font-medium py-2.5 px-4 text-sm transition shadow-lg">Run Orchestration</button>
-          <button type="button" id="btn-choreo" class="rounded-lg bg-slate-700 hover:bg-slate-600 border border-slate-600 text-white font-medium py-2.5 px-4 text-sm transition">Run Choreography</button>
-        </div>
-      </section>
+        <div class="border-t border-slate-700/50 px-6 pb-6 pt-6 space-y-6">
 
-      <section class="rounded-xl bg-slate-900/60 border border-slate-700/50 shadow-xl p-6">
-        <div class="flex items-center justify-between mb-3">
-          <h2 class="text-lg font-semibold text-white flex items-center gap-2">
-            <span class="flex h-8 w-8 items-center justify-center rounded-lg bg-orange-500/20 text-orange-300 text-sm font-bold">8</span>
-            Execution Log
-          </h2>
-          <button type="button" id="btn-clear-exec-log" class="text-xs text-slate-400 hover:text-white underline">Clear</button>
-        </div>
-        <div id="exec-log" class="min-h-[12rem] max-h-64 overflow-y-auto rounded-lg bg-slate-950/80 border border-slate-700 p-4 font-mono text-sm text-slate-200"></div>
-      </section>
+          <!-- E. EVENT TIMELINE -->
+          <div>
+            <h3 class="text-sm font-semibold text-white mb-1 flex items-center gap-2">
+              <span class="flex h-6 w-6 items-center justify-center rounded bg-violet-500/20 text-violet-300 text-xs font-bold">E</span>
+              Event Timeline
+            </h3>
+            <p class="text-xs text-slate-400 mb-3">Domain events emitted during execution — each task completion publishes an event that drives the next step.</p>
+            <div class="flex flex-wrap gap-1.5 mb-3 text-xs">
+              <span class="inline-flex items-center gap-1 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 px-2 py-0.5">🟢 WorkflowStarted</span>
+              <span class="inline-flex items-center gap-1 rounded-full bg-amber-500/10 border border-amber-500/20 text-amber-400 px-2 py-0.5">⚙️ TaskStarted</span>
+              <span class="inline-flex items-center gap-1 rounded-full bg-green-500/10 border border-green-500/20 text-green-400 px-2 py-0.5">✓ TaskCompleted</span>
+              <span class="inline-flex items-center gap-1 rounded-full bg-violet-500/10 border border-violet-500/20 text-violet-400 px-2 py-0.5">🔀 TransitionResolved</span>
+              <span class="inline-flex items-center gap-1 rounded-full bg-blue-500/10 border border-blue-500/20 text-blue-400 px-2 py-0.5">📡 EventPublished</span>
+            </div>
+            <div id="eventStream" class="divide-y divide-slate-800/50 rounded-xl bg-slate-800/30 border border-slate-700/40 px-4 h-56 overflow-y-auto">
+              <p class="text-slate-500 text-xs italic py-6 text-center">No events yet — start a workflow execution above.</p>
+            </div>
+          </div>
 
-      <section class="rounded-xl bg-slate-900/60 border border-slate-700/50 shadow-xl p-6">
-        <div class="flex items-center justify-between mb-3">
-          <h2 class="text-lg font-semibold text-white flex items-center gap-2">
-            <span class="flex h-8 w-8 items-center justify-center rounded-lg bg-slate-600 text-slate-200 text-sm font-bold">9</span>
-            Output / Logs
-          </h2>
-          <button type="button" id="btn-clear-log" class="text-xs text-slate-400 hover:text-white underline">Clear</button>
+          <!-- F. ARCHITECTURE VIEW -->
+          <details class="rounded-xl bg-slate-800/30 border border-slate-700/40 overflow-hidden">
+            <summary class="flex items-center justify-between p-4 cursor-pointer select-none list-none">
+              <h3 class="text-sm font-semibold text-white flex items-center gap-2">
+                <span class="flex h-6 w-6 items-center justify-center rounded bg-fuchsia-500/20 text-fuchsia-300 text-xs font-bold">F</span>
+                Architecture View
+              </h3>
+              <span class="text-slate-400 text-xs">▼ expand</span>
+            </summary>
+            <div class="px-4 pb-4">
+              <p class="text-xs text-slate-400 mb-3 text-center">Component states animate live during execution</p>
+              <div id="architecture" class="p-4 bg-gray-900 rounded-xl text-center text-sm">
+                <div class="flex flex-col items-stretch gap-1 max-w-md mx-auto">
+                  <div id="arch-user" class="arch-box w-full px-4 py-3 rounded-xl border transition-colors duration-300 bg-slate-800 border-slate-600 text-slate-300">
+                    <div class="font-semibold">User</div>
+                    <div class="text-xs mt-1 text-slate-400"><span data-arch-status>IDLE</span></div>
+                  </div>
+                  <div class="text-slate-500 py-0.5 text-center select-none">↓</div>
+                  <div id="arch-gateway" class="arch-box w-full px-4 py-3 rounded-xl border transition-colors duration-300 bg-slate-800 border-slate-600 text-slate-300">
+                    <div class="font-semibold">API Gateway</div>
+                    <div class="text-xs mt-1 text-slate-400"><span data-arch-status>IDLE</span> · <span class="text-slate-500">REST</span></div>
+                  </div>
+                  <div class="text-slate-500 py-0.5 text-center select-none">↓</div>
+                  <div id="arch-workflow" class="arch-box w-full px-4 py-3 rounded-xl border transition-colors duration-300 bg-slate-800 border-slate-600 text-slate-300">
+                    <div class="font-semibold">Workflow Engine + TransitionResolver</div>
+                    <div class="text-xs mt-1 text-slate-400"><span data-arch-status>IDLE</span></div>
+                  </div>
+                  <div class="text-slate-500 py-0.5 text-center select-none">↓</div>
+                  <div id="arch-task" class="arch-box w-full px-4 py-3 rounded-xl border transition-colors duration-300 bg-slate-800 border-slate-600 text-slate-300">
+                    <div class="font-semibold">Task Runner</div>
+                    <div class="text-xs mt-1 text-slate-400"><span data-arch-status>IDLE</span></div>
+                  </div>
+                  <div class="text-slate-500 py-0.5 text-center select-none">↓</div>
+                  <div id="arch-event" class="arch-box w-full px-4 py-3 rounded-xl border transition-colors duration-300 bg-slate-800 border-slate-600 text-slate-300">
+                    <div class="font-semibold">EventBus / Kafka</div>
+                    <div class="text-xs mt-1 text-slate-400"><span data-arch-status>IDLE</span> · <span class="text-slate-500">Events</span></div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </details>
+
+          <!-- G. CREATE CUSTOM WORKFLOW -->
+          <div class="rounded-xl bg-slate-800/30 border border-slate-700/40 p-5">
+            <h3 class="text-sm font-semibold text-white mb-1 flex items-center gap-2">
+              <span class="flex h-6 w-6 items-center justify-center rounded bg-rose-500/20 text-rose-300 text-base leading-none">✦</span>
+              Create Custom Workflow
+            </h3>
+            <p class="text-xs text-slate-400 mb-4">Design any workflow graph — steps are nodes, rules are edges.</p>
+            <div class="mb-4">
+              <label for="designer-wf-name" class="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">Workflow Name</label>
+              <input id="designer-wf-name" type="text" placeholder="e.g. Customer Onboarding" class="w-full max-w-sm rounded-lg bg-slate-800 border border-slate-600 px-4 py-2.5 text-sm text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-rose-500" />
+            </div>
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+              <div class="rounded-xl bg-slate-800/40 border border-slate-700/40 p-4">
+                <div class="flex items-center gap-2 mb-1">
+                  <h4 class="text-sm font-semibold text-white">Workflow Steps</h4>
+                  <span class="text-xs rounded-full bg-cyan-500/15 border border-cyan-500/30 text-cyan-400 px-2 py-0.5">Nodes</span>
+                </div>
+                <p class="text-xs text-slate-500 mb-3">Each step is a node in the graph. Order is top-to-bottom.</p>
+                <div id="designer-steps-list" class="space-y-2 mb-3 min-h-[2rem]"></div>
+                <button type="button" id="designer-add-step" class="flex items-center gap-1.5 text-xs font-medium text-cyan-400 hover:text-cyan-300 transition">
+                  <span class="flex h-5 w-5 items-center justify-center rounded border border-cyan-500/40 bg-cyan-500/10 text-sm leading-none">+</span>
+                  Add Node
+                </button>
+              </div>
+              <div class="rounded-xl bg-slate-800/40 border border-slate-700/40 p-4">
+                <div class="flex items-center gap-2 mb-1">
+                  <h4 class="text-sm font-semibold text-white">Workflow Rules</h4>
+                  <span class="text-xs rounded-full bg-violet-500/15 border border-violet-500/30 text-violet-400 px-2 py-0.5">Edges</span>
+                </div>
+                <p class="text-xs text-slate-500 mb-3">Define when to move between steps. Add steps first.</p>
+                <div id="designer-transitions-list" class="space-y-2 mb-3 min-h-[2rem]"></div>
+                <button type="button" id="designer-add-transition" class="flex items-center gap-1.5 text-xs font-medium text-violet-400 hover:text-violet-300 transition">
+                  <span class="flex h-5 w-5 items-center justify-center rounded border border-violet-500/40 bg-violet-500/10 text-sm leading-none">+</span>
+                  Add Transition
+                </button>
+              </div>
+            </div>
+            <div class="mt-4 flex flex-wrap items-center gap-3">
+              <button type="button" id="designer-save" class="rounded-lg bg-rose-600 hover:bg-rose-500 disabled:opacity-50 disabled:cursor-not-allowed text-white font-semibold py-2.5 px-5 text-sm transition">
+                Save &amp; Load Graph
+              </button>
+              <p id="designer-status" class="text-xs text-slate-400"></p>
+            </div>
+          </div>
+
+          <!-- H. WORKFLOW MANAGEMENT -->
+          <div class="rounded-xl bg-slate-800/30 border border-slate-700/40 p-5 space-y-4">
+            <h3 class="text-sm font-semibold text-white flex items-center gap-2">
+              <span class="flex h-6 w-6 items-center justify-center rounded bg-slate-600/60 text-slate-300 text-xs font-bold">G</span>
+              Workflow Management
+            </h3>
+            <div id="workflow-management-hidden" class="text-xs text-slate-500"></div>
+            <div class="rounded-xl bg-slate-800/50 border border-slate-700/40 p-4">
+              <h4 class="text-xs font-semibold text-slate-300 mb-3">Create User</h4>
+              <div class="space-y-2 max-w-md">
+                <input id="u-email" type="email" placeholder="Email" class="w-full rounded-lg bg-slate-800/80 border border-slate-600 px-4 py-2.5 text-sm text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+                <input id="u-password" type="password" placeholder="Password" class="w-full rounded-lg bg-slate-800/80 border border-slate-600 px-4 py-2.5 text-sm text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+                <button type="button" id="btn-user" class="rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white font-medium py-2 px-4 text-sm transition">Create User</button>
+              </div>
+            </div>
+            <div class="rounded-xl bg-slate-800/50 border border-slate-700/40 p-4">
+              <h4 class="text-xs font-semibold text-slate-300 mb-1">Create Workflow</h4>
+              <p class="text-xs text-slate-400 mb-3">Uses the current user context.</p>
+              <div class="space-y-2 max-w-md">
+                <input id="w-name" type="text" placeholder="Workflow name" class="w-full rounded-lg bg-slate-800/80 border border-slate-600 px-4 py-2.5 text-sm text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-violet-500" />
+                <button type="button" id="btn-workflow" class="rounded-lg bg-violet-600 hover:bg-violet-500 text-white font-medium py-2 px-4 text-sm transition">Create Workflow</button>
+              </div>
+            </div>
+            <div class="rounded-xl bg-slate-800/50 border border-slate-700/40 p-4">
+              <h4 class="text-xs font-semibold text-slate-300 mb-1">Create Task</h4>
+              <p class="text-xs text-slate-400 mb-3">Attaches to the current workflow.</p>
+              <div class="space-y-2 max-w-md">
+                <input id="t-name" type="text" placeholder="Task name" class="w-full rounded-lg bg-slate-800/80 border border-slate-600 px-4 py-2.5 text-sm text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-cyan-500" />
+                <input id="t-order" type="number" min="0" placeholder="Order" class="w-full rounded-lg bg-slate-800/80 border border-slate-600 px-4 py-2.5 text-sm text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-cyan-500" />
+                <button type="button" id="btn-task" class="rounded-lg bg-cyan-600 hover:bg-cyan-500 text-white font-medium py-2 px-4 text-sm transition">Create Task</button>
+              </div>
+            </div>
+            <div class="rounded-xl bg-slate-800/50 border border-slate-700/40 p-4">
+              <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-3">
+                <h4 class="text-xs font-semibold text-slate-300">Tasks (current workflow)</h4>
+                <button type="button" id="btn-refresh-tasks" class="shrink-0 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-medium py-1.5 px-3 text-xs transition">Refresh</button>
+              </div>
+              <div class="overflow-x-auto rounded-lg border border-slate-700">
+                <table class="min-w-full text-left text-sm">
+                  <thead>
+                    <tr class="border-b border-slate-600 bg-slate-800/80">
+                      <th class="px-3 py-2 font-semibold text-slate-300 whitespace-nowrap text-xs">ID</th>
+                      <th class="px-3 py-2 font-semibold text-slate-300 whitespace-nowrap text-xs">Name</th>
+                      <th class="px-3 py-2 font-semibold text-slate-300 whitespace-nowrap text-xs">Order</th>
+                      <th class="px-3 py-2 font-semibold text-slate-300 whitespace-nowrap text-xs">Status</th>
+                      <th class="px-3 py-2 font-semibold text-slate-300 whitespace-nowrap text-xs">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody id="tasks-body" class="divide-y divide-slate-700/60"></tbody>
+                </table>
+              </div>
+            </div>
+            <div class="rounded-xl bg-slate-800/50 border border-slate-700/40 p-4">
+              <h4 class="text-xs font-semibold text-slate-300 mb-3">Current Context</h4>
+              <div class="grid sm:grid-cols-2 gap-4">
+                <div>
+                  <label class="block text-xs font-medium text-slate-400 mb-1">User</label>
+                  <p id="adv-ctx-user" class="text-sm text-white font-medium">—</p>
+                </div>
+                <div>
+                  <label class="block text-xs font-medium text-slate-400 mb-1">Workflow</label>
+                  <p id="adv-ctx-workflow" class="text-sm text-slate-300">—</p>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- I. DEVELOPER DEBUG -->
+          <div class="rounded-xl bg-slate-800/30 border border-slate-700/40 p-5 space-y-4">
+            <h3 class="text-sm font-semibold text-white flex items-center gap-2">
+              <span class="flex h-6 w-6 items-center justify-center rounded bg-slate-700 text-slate-400 text-xs font-bold">H</span>
+              Developer Debug
+            </h3>
+            <div>
+              <h4 class="text-xs font-medium text-slate-300 mb-2">Direct Execution Triggers</h4>
+              <div class="flex flex-wrap gap-2">
+                <button type="button" id="btn-orch" class="rounded-lg bg-slate-700 hover:bg-amber-700 border border-slate-600 text-white text-xs font-medium py-1.5 px-3 transition">Run Orchestration</button>
+                <button type="button" id="btn-choreo" class="rounded-lg bg-slate-700 hover:bg-cyan-700 border border-slate-600 text-white text-xs font-medium py-1.5 px-3 transition">Run Choreography</button>
+              </div>
+            </div>
+            <div>
+              <h4 class="text-xs font-medium text-slate-300 mb-2">Backend Logs</h4>
+              <div id="logs" class="bg-black text-xs p-4 rounded-xl h-40 overflow-y-auto font-mono"></div>
+            </div>
+            <div>
+              <div class="flex items-center justify-between mb-2">
+                <h4 class="text-xs font-medium text-slate-300">Execution Log</h4>
+                <button type="button" id="btn-clear-exec-log" class="text-xs text-slate-400 hover:text-white underline">Clear</button>
+              </div>
+              <div id="exec-log" class="min-h-[6rem] max-h-40 overflow-y-auto rounded-lg bg-slate-950/80 border border-slate-700 p-3 font-mono text-sm text-slate-200"></div>
+            </div>
+            <div>
+              <div class="flex items-center justify-between mb-2">
+                <h4 class="text-xs font-medium text-slate-300">Output / Raw Logs</h4>
+                <button type="button" id="btn-clear-log" class="text-xs text-slate-400 hover:text-white underline">Clear</button>
+              </div>
+              <div id="log" class="h-40 overflow-y-auto rounded-lg bg-slate-950/80 border border-slate-700 p-3 font-mono text-xs text-slate-300"></div>
+            </div>
+          </div>
+
         </div>
-        <div id="log" class="h-48 overflow-y-auto rounded-lg bg-slate-950/80 border border-slate-700 p-4 font-mono text-xs text-slate-300"></div>
-      </section>
+      </details>
+
     </div>
   </div>
 
@@ -210,6 +435,33 @@
     var timelinePollId = null;
     var timelineWorkflowId = null;
     let activeService = null;
+    var currentTransitions = [];
+    var currentTransitionsWfId = null;
+    var _wfTaskCounts = {};
+    var _wfHasTransitions = {};
+
+    // Fetches WorkflowTransition rows for the given workflow (fire-and-forget,
+    // cached per workflow id). drawGraph() renders the branching layout when
+    // transitions exist, or falls back to the plain linear layout otherwise.
+    function ensureTransitionsLoaded(wfId) {
+      if (wfId == null) {
+        currentTransitions = [];
+        currentTransitionsWfId = null;
+        return;
+      }
+      if (currentTransitionsWfId === wfId) return;
+      currentTransitionsWfId = wfId;
+      fetch("/workflows/" + wfId + "/transitions")
+        .then(function (res) { return res.ok ? res.json() : []; })
+        .then(function (data) {
+          currentTransitions = Array.isArray(data) ? data : [];
+          if (currentTransitions.length > 0) {
+            _wfHasTransitions[String(currentTransitionsWfId)] = currentTransitions.length;
+            if (_lastCardList.length) renderWorkflowCards(_lastCardList);
+          }
+        })
+        .catch(function () { currentTransitions = []; });
+    }
 
     var ARCH_IDS = ["arch-user", "arch-gateway", "arch-workflow", "arch-task", "arch-event"];
 
@@ -298,11 +550,50 @@
       timelineEl.scrollTop = timelineEl.scrollHeight;
     }
 
+    function formatEventEntry(rawMessage, ts) {
+      ts = ts || new Date().toLocaleTimeString();
+      var msg = rawMessage || "";
+      var icon, typeLabel, typeCls, detail = "";
+      if (/workflow_started/i.test(msg)) {
+        icon = "🟢"; typeLabel = "WorkflowStarted"; typeCls = "text-emerald-400";
+        detail = msg.replace(/.*workflow_started\s*[\u2192:]*\s*/i, "").trim();
+      } else if (/task_started/i.test(msg)) {
+        icon = "⚙️"; typeLabel = "TaskStarted"; typeCls = "text-amber-400";
+        detail = "Task: " + msg.replace(/.*task_started\s*[\u2192:]*\s*/i, "").trim();
+      } else if (/task_completed/i.test(msg)) {
+        icon = "✓"; typeLabel = "TaskCompleted"; typeCls = "text-green-400";
+        detail = "Task: " + msg.replace(/.*task_completed\s*[\u2192:]*\s*/i, "").trim();
+      } else if (/task_failed/i.test(msg)) {
+        icon = "✗"; typeLabel = "TaskFailed"; typeCls = "text-red-400";
+        detail = "Task: " + msg.replace(/.*task_failed\s*[\u2192:]*\s*/i, "").trim();
+      } else if (/transition/i.test(msg)) {
+        icon = "🔀"; typeLabel = "TransitionResolved"; typeCls = "text-violet-400";
+        detail = msg.replace(/.*transition\s*[\u2192:]*\s*/i, "").trim();
+      } else if (/EVENT/i.test(msg)) {
+        icon = "📡"; typeLabel = "EventPublished"; typeCls = "text-blue-400";
+        detail = msg.replace(/.*EVENT\s*[\u2192:]*\s*/i, "").trim();
+      } else {
+        icon = "📡"; typeLabel = "EventPublished"; typeCls = "text-blue-400";
+        detail = msg;
+      }
+      return '<div class="flex items-start gap-3 py-2.5">'
+        + '<div class="shrink-0 flex h-7 w-7 items-center justify-center rounded-lg bg-slate-800/80 text-sm">' + icon + '</div>'
+        + '<div class="min-w-0 flex-1">'
+        +   '<div class="flex items-baseline gap-2 flex-wrap">'
+        +     '<span class="text-xs font-semibold ' + typeCls + '">' + typeLabel + '</span>'
+        +     '<span class="text-xs text-slate-600">' + ts + '</span>'
+        +   '</div>'
+        +   (detail ? '<div class="text-xs text-slate-400 mt-0.5">' + detail + '</div>' : '')
+        + '</div>'
+        + '</div>';
+    }
+
     function logEvent(message) {
-      var el = document.createElement("div");
-      el.className = "text-blue-400";
-      el.textContent = "[" + new Date().toLocaleTimeString() + "] " + message;
       var container = document.getElementById("eventStream");
+      if (!container) return;
+      var el = document.createElement("div");
+      el.className = "border-b border-slate-800/50 last:border-0";
+      el.innerHTML = formatEventEntry(message);
       container.appendChild(el);
       container.scrollTop = container.scrollHeight;
     }
@@ -332,16 +623,58 @@
         progressLabel.textContent = "No tasks for this workflow";
         return;
       }
-      var done = tasks.filter(function (t) { return t.status === "DONE"; }).length;
-      var pct = Math.round((done / tasks.length) * 100);
-      progressBar.style.width = pct + "%";
-      progressLabel.textContent = done + " / " + tasks.length + " tasks done";
+      var hasRunning = tasks.some(function (t) { return t.status === "RUNNING"; });
+      var hasDoneOrFailed = tasks.some(function (t) { return t.status === "DONE" || t.status === "FAILED"; });
+      var isCompleted = !hasRunning && hasDoneOrFailed;
+      var skipped = tasks.filter(function (t) { return t.status === "PENDING"; }).length;
+      if (isCompleted && skipped > 0) {
+        var executed = tasks.length - skipped;
+        var pct = Math.round((executed / tasks.length) * 100);
+        progressBar.style.width = pct + "%";
+        progressLabel.textContent = "Executed: " + executed + " task" + (executed !== 1 ? "s" : "") +
+          "  ·  Skipped: " + skipped + " branch" + (skipped !== 1 ? "es" : "");
+      } else {
+        var done = tasks.filter(function (t) { return t.status === "DONE"; }).length;
+        var pct2 = Math.round((done / tasks.length) * 100);
+        progressBar.style.width = pct2 + "%";
+        progressLabel.textContent = done + " / " + tasks.length + " tasks done";
+      }
     }
 
-    function drawGraph(tasks) {
+    function nodeFillFor(st) {
+      if (st === "RUNNING") return "#eab308";
+      if (st === "DONE") return "#22c55e";
+      if (st === "FAILED") return "#ef4444";
+      return "#9ca3af";
+    }
+
+    function edgeColorFor(condition) {
+      if (condition === "SUCCESS") return "#22c55e";
+      if (condition === "FAILURE") return "#ef4444";
+      return "#9ca3af"; // ALWAYS
+    }
+
+    function updateGraphLabel(tasks) {
+      var el = document.getElementById("graph-mode-label");
+      if (!el) return;
+      if (!tasks || !tasks.length || tasks.every(function (t) { return t.status === "PENDING"; })) {
+        el.textContent = "Workflow definition";
+        el.className = "text-xs text-slate-500 mb-2";
+        return;
+      }
+      for (var i = 0; i < tasks.length; i++) {
+        if (tasks[i].status === "RUNNING") {
+          el.textContent = "Executing: " + tasks[i].name;
+          el.className = "text-xs text-yellow-400 font-medium mb-2";
+          return;
+        }
+      }
+      el.textContent = "Execution completed";
+      el.className = "text-xs text-emerald-400 font-medium mb-2";
+    }
+
+    function setupCanvas(w, h) {
       var ctx = graphCanvas.getContext("2d");
-      var w = 600;
-      var h = 200;
       var dpr = window.devicePixelRatio || 1;
       graphCanvas.width = w * dpr;
       graphCanvas.height = h * dpr;
@@ -350,19 +683,38 @@
       ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
       ctx.fillStyle = "#111827";
       ctx.fillRect(0, 0, w, h);
-      var sorted = tasks.slice().sort(function (a, b) { return a.order - b.order; });
-      if (!sorted.length) {
-        ctx.fillStyle = "#6b7280";
-        ctx.font = "14px system-ui,sans-serif";
-        ctx.textAlign = "center";
-        ctx.fillText("No tasks — select a workflow or add tasks", w / 2, h / 2);
-        return;
-      }
-      function fillFor(st) {
-        if (st === "RUNNING") return "#eab308";
-        if (st === "DONE") return "#22c55e";
-        return "#9ca3af";
-      }
+      return ctx;
+    }
+
+    function drawArrowhead(ctx, fromX, fromY, toX, toY, color) {
+      var angle = Math.atan2(toY - fromY, toX - fromX);
+      var size = 7;
+      ctx.beginPath();
+      ctx.moveTo(toX, toY);
+      ctx.lineTo(toX - size * Math.cos(angle - Math.PI / 6), toY - size * Math.sin(angle - Math.PI / 6));
+      ctx.lineTo(toX - size * Math.cos(angle + Math.PI / 6), toY - size * Math.sin(angle + Math.PI / 6));
+      ctx.closePath();
+      ctx.fillStyle = color;
+      ctx.fill();
+    }
+
+    function drawEdgeLabel(ctx, x, y, text, color) {
+      ctx.font = "10px system-ui,sans-serif";
+      var padding = 4;
+      var metrics = ctx.measureText(text);
+      ctx.fillStyle = "#111827";
+      ctx.fillRect(x - metrics.width / 2 - padding, y - 8, metrics.width + padding * 2, 14);
+      ctx.fillStyle = color;
+      ctx.textAlign = "center";
+      ctx.fillText(text, x, y + 3);
+    }
+
+    // Legacy linear rendering: A -> B -> C, used when the workflow has no
+    // WorkflowTransition rows (pure order-based backward-compat mode).
+    function drawLinearGraph(sorted) {
+      var w = 600;
+      var h = 200;
+      var ctx = setupCanvas(w, h);
       var margin = 48;
       var inner = w - margin * 2;
       var cy = h / 2;
@@ -372,22 +724,35 @@
       var i;
       if (n === 1) xs.push(w / 2);
       else for (i = 0; i < n; i++) xs.push(margin + (inner * i) / (n - 1));
-      ctx.strokeStyle = "#4b5563";
-      ctx.lineWidth = 2;
+      var anyNonPending = sorted.some(function (t) { return t.status !== "PENDING"; });
       for (i = 0; i < n - 1; i++) {
+        var edgeActive = anyNonPending && sorted[i].status !== "PENDING" && sorted[i + 1].status !== "PENDING";
+        ctx.globalAlpha = (anyNonPending && !edgeActive) ? 0.25 : 1.0;
+        ctx.strokeStyle = edgeActive ? "#4ade80" : "#4b5563";
+        ctx.lineWidth = edgeActive ? 2.5 : 2;
         ctx.beginPath();
         ctx.moveTo(xs[i], cy);
         ctx.lineTo(xs[i + 1], cy);
         ctx.stroke();
       }
+      ctx.globalAlpha = 1.0;
       for (i = 0; i < n; i++) {
         var t = sorted[i];
+        if (t.status === "RUNNING") {
+          ctx.beginPath();
+          ctx.arc(xs[i], cy, r + 7, 0, Math.PI * 2);
+          ctx.strokeStyle = "#eab308";
+          ctx.lineWidth = 4;
+          ctx.globalAlpha = 0.35;
+          ctx.stroke();
+          ctx.globalAlpha = 1.0;
+        }
         ctx.beginPath();
         ctx.arc(xs[i], cy, r, 0, Math.PI * 2);
-        ctx.fillStyle = fillFor(t.status);
+        ctx.fillStyle = nodeFillFor(t.status);
         ctx.fill();
-        ctx.strokeStyle = "#1f2937";
-        ctx.lineWidth = 2;
+        ctx.strokeStyle = t.status === "RUNNING" ? "#eab308" : t.status === "DONE" ? "#16a34a" : t.status === "FAILED" ? "#dc2626" : "#1f2937";
+        ctx.lineWidth = t.status === "RUNNING" ? 3 : 2;
         ctx.stroke();
         ctx.fillStyle = "#f3f4f6";
         ctx.font = "11px system-ui,sans-serif";
@@ -397,12 +762,327 @@
       }
     }
 
+    // Branching graph rendering: layered BFS layout from the start node(s),
+    // edges colored/labelled by condition (SUCCESS / FAILURE / ALWAYS).
+    // Back-edges (loops, e.g. RetryPayment -> ChargeCard) are drawn as
+    // dashed curves so retry cycles are visually distinguishable.
+    function drawBranchingGraph(sorted, transitions) {
+      var byId = {};
+      sorted.forEach(function (t) { byId[t.id] = t; });
+
+      var targets = {};
+      transitions.forEach(function (tr) { targets[tr.to_task_id] = true; });
+      var starts = sorted.filter(function (t) { return !targets[t.id]; });
+      if (!starts.length) starts = [sorted[0]];
+
+      var outgoing = {};
+      transitions.forEach(function (tr) {
+        if (!outgoing[tr.from_task_id]) outgoing[tr.from_task_id] = [];
+        outgoing[tr.from_task_id].push(tr);
+      });
+
+      var levelOf = {};
+      var queue = starts.map(function (t) { return { id: t.id, lvl: 0 }; });
+      starts.forEach(function (t) { levelOf[t.id] = 0; });
+      while (queue.length) {
+        var cur = queue.shift();
+        var edges = outgoing[cur.id] || [];
+        for (var e = 0; e < edges.length; e++) {
+          var toId = edges[e].to_task_id;
+          if (Object.prototype.hasOwnProperty.call(levelOf, toId)) continue;
+          if (!byId[toId]) continue;
+          levelOf[toId] = cur.lvl + 1;
+          queue.push({ id: toId, lvl: cur.lvl + 1 });
+        }
+      }
+      // Any task not reached (disconnected) still needs to be shown.
+      var maxLvl = 0;
+      Object.keys(levelOf).forEach(function (k) { if (levelOf[k] > maxLvl) maxLvl = levelOf[k]; });
+      sorted.forEach(function (t) {
+        if (!Object.prototype.hasOwnProperty.call(levelOf, t.id)) {
+          maxLvl += 1;
+          levelOf[t.id] = maxLvl;
+        }
+      });
+
+      var levels = {};
+      sorted.forEach(function (t) {
+        var lvl = levelOf[t.id];
+        if (!levels[lvl]) levels[lvl] = [];
+        levels[lvl].push(t);
+      });
+      var levelKeys = Object.keys(levels).map(Number).sort(function (a, b) { return a - b; });
+      var maxPerLevel = 1;
+      levelKeys.forEach(function (k) { if (levels[k].length > maxPerLevel) maxPerLevel = levels[k].length; });
+
+      var r = 16;
+      var colWidth = 150;
+      var rowHeight = 100;
+      var w = Math.max(600, maxPerLevel * colWidth + 60);
+      var h = Math.max(220, (levelKeys.length) * rowHeight + 80);
+      var ctx = setupCanvas(w, h);
+
+      var pos = {};
+      levelKeys.forEach(function (lvlKey, li) {
+        var nodes = levels[lvlKey];
+        var count = nodes.length;
+        var y = 50 + li * rowHeight;
+        nodes.forEach(function (t, i) {
+          var x = (w - (count - 1) * colWidth) / 2 + i * colWidth;
+          pos[t.id] = { x: x, y: y };
+        });
+      });
+
+      // Execution mode: highlight traversed edges, dim the rest
+      var isExecuting = sorted.some(function (t) { return t.status !== "PENDING"; });
+
+      // Edges (drawn first, underneath nodes)
+      transitions.forEach(function (tr) {
+        var from = pos[tr.from_task_id];
+        var to = pos[tr.to_task_id];
+        if (!from || !to) return;
+        var color = edgeColorFor(tr.condition);
+        var isBackEdge = levelOf[tr.to_task_id] <= levelOf[tr.from_task_id];
+        var fromTask = byId[tr.from_task_id];
+        var toTask = byId[tr.to_task_id];
+        var isActive = false;
+        if (isExecuting && fromTask && toTask && toTask.status !== "PENDING") {
+          if (tr.condition === "SUCCESS" && fromTask.status === "DONE") isActive = true;
+          if (tr.condition === "FAILURE" && fromTask.status === "FAILED") isActive = true;
+          if (tr.condition === "ALWAYS" && (fromTask.status === "DONE" || fromTask.status === "FAILED")) isActive = true;
+        }
+        ctx.globalAlpha = (isExecuting && !isActive) ? 0.2 : 1.0;
+        ctx.strokeStyle = color;
+        ctx.lineWidth = isActive ? 3 : 2;
+        var midX, midY;
+        if (isBackEdge) {
+          ctx.setLineDash([5, 4]);
+          var bulge = 60;
+          var cx = Math.max(from.x, to.x) + bulge;
+          var cy1 = (from.y + to.y) / 2;
+          ctx.beginPath();
+          ctx.moveTo(from.x, from.y);
+          ctx.quadraticCurveTo(cx, cy1, to.x, to.y + r);
+          ctx.stroke();
+          ctx.setLineDash([]);
+          drawArrowhead(ctx, cx, cy1, to.x, to.y + r, color);
+          midX = cx - bulge * 0.4;
+          midY = cy1;
+        } else {
+          var angle = Math.atan2(to.y - from.y, to.x - from.x);
+          var sx = from.x + r * Math.cos(angle);
+          var sy = from.y + r * Math.sin(angle);
+          var ex = to.x - (r + 8) * Math.cos(angle);
+          var ey = to.y - (r + 8) * Math.sin(angle);
+          ctx.beginPath();
+          ctx.moveTo(sx, sy);
+          ctx.lineTo(ex, ey);
+          ctx.stroke();
+          drawArrowhead(ctx, sx, sy, ex, ey, color);
+          midX = (sx + ex) / 2;
+          midY = (sy + ey) / 2;
+        }
+        drawEdgeLabel(ctx, midX, midY, tr.condition, color);
+        ctx.globalAlpha = 1.0;
+      });
+
+      // Nodes
+      sorted.forEach(function (t) {
+        var p = pos[t.id];
+        if (!p) return;
+        if (t.status === "RUNNING") {
+          ctx.beginPath();
+          ctx.arc(p.x, p.y, r + 7, 0, Math.PI * 2);
+          ctx.strokeStyle = "#eab308";
+          ctx.lineWidth = 4;
+          ctx.globalAlpha = 0.35;
+          ctx.stroke();
+          ctx.globalAlpha = 1.0;
+        }
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, r, 0, Math.PI * 2);
+        ctx.fillStyle = nodeFillFor(t.status);
+        ctx.fill();
+        ctx.strokeStyle = t.status === "RUNNING" ? "#eab308" : t.status === "DONE" ? "#16a34a" : t.status === "FAILED" ? "#dc2626" : "#1f2937";
+        ctx.lineWidth = t.status === "RUNNING" ? 3 : 2;
+        ctx.stroke();
+        ctx.fillStyle = "#f3f4f6";
+        ctx.font = "11px system-ui,sans-serif";
+        ctx.textAlign = "center";
+        var nm = t.name.length > 16 ? t.name.slice(0, 14) + "…" : t.name;
+        ctx.fillText(nm, p.x, p.y + r + 18);
+      });
+    }
+
+    function drawGraph(tasks, transitions) {
+      transitions = transitions || [];
+      var sorted = tasks.slice().sort(function (a, b) { return a.order - b.order; });
+      updateGraphLabel(sorted);
+      if (!sorted.length) {
+        var ctx0 = setupCanvas(600, 200);
+        ctx0.fillStyle = "#6b7280";
+        ctx0.font = "14px system-ui,sans-serif";
+        ctx0.textAlign = "center";
+        ctx0.fillText("No tasks — select a workflow or add tasks", 300, 100);
+        return;
+      }
+      if (transitions.length) {
+        drawBranchingGraph(sorted, transitions);
+      } else {
+        drawLinearGraph(sorted);
+      }
+    }
+
+    function renderWorkflowSummary(tasks, transitions) {
+      var container = document.getElementById("workflow-summary");
+      if (!container) return;
+      var nodeCount = tasks ? tasks.length : 0;
+      if (nodeCount === 0) { container.innerHTML = ""; return; }
+      var edges = transitions || [];
+      var successCnt = 0, failureCnt = 0, alwaysCnt = 0;
+      edges.forEach(function (tr) {
+        if (tr.condition === "SUCCESS") successCnt++;
+        else if (tr.condition === "FAILURE") failureCnt++;
+        else alwaysCnt++;
+      });
+      var orderMap = {};
+      tasks.forEach(function (t) { orderMap[t.id] = t.order; });
+      var hasLoop = edges.some(function (tr) {
+        var fo = orderMap[tr.from_task_id], to = orderMap[tr.to_task_id];
+        return fo !== undefined && to !== undefined && to <= fo;
+      });
+      var condParts = [];
+      if (successCnt) condParts.push('<span class="text-green-400 font-medium">SUCCESS: ' + successCnt + '</span>');
+      if (failureCnt) condParts.push('<span class="text-red-400 font-medium">FAILURE: ' + failureCnt + '</span>');
+      if (alwaysCnt)  condParts.push('<span class="text-slate-400">ALWAYS: ' + alwaysCnt + '</span>');
+      container.innerHTML =
+        '<div class="mt-4 rounded-xl bg-slate-800/40 border border-slate-700/40 px-5 py-3">'
+        + '<div class="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-3">Workflow Definition</div>'
+        + '<div class="grid grid-cols-2 sm:grid-cols-4 gap-x-6 gap-y-3">'
+        + '<div>'
+        +   '<div class="text-slate-500 text-xs mb-1">Tasks</div>'
+        +   '<div class="text-white font-semibold text-sm">' + nodeCount + '</div>'
+        +   '<div class="text-slate-500 text-xs">nodes in graph</div>'
+        + '</div>'
+        + '<div>'
+        +   '<div class="text-slate-500 text-xs mb-1">Transitions</div>'
+        +   '<div class="text-white font-semibold text-sm">' + edges.length + '</div>'
+        +   '<div class="text-slate-500 text-xs">edges in graph</div>'
+        + '</div>'
+        + '<div>'
+        +   '<div class="text-slate-500 text-xs mb-1">Conditions</div>'
+        +   '<div class="text-xs leading-relaxed">' + (condParts.length ? condParts.join('<br>') : '<span class="text-slate-600">—</span>') + '</div>'
+        + '</div>'
+        + '<div>'
+        +   '<div class="text-slate-500 text-xs mb-1">Loops</div>'
+        +   '<div class="text-sm font-semibold ' + (hasLoop ? 'text-amber-400' : 'text-slate-600') + '">' + (hasLoop ? 'Detected' : 'None') + '</div>'
+        + '</div>'
+        + '</div>'
+        + '</div>';
+    }
+
+    function renderRuntimeMonitor(tasks) {
+      var container = document.getElementById("runtime-monitor-steps");
+      if (!container) return;
+      if (!tasks || !tasks.length) {
+        container.innerHTML = '<p class="text-slate-500 text-sm italic">No tasks in this workflow.</p>';
+        return;
+      }
+      var sorted = tasks.slice().sort(function (a, b) { return a.order - b.order; });
+      var execCompleted = !tasks.some(function (t) { return t.status === "RUNNING"; }) &&
+        tasks.some(function (t) { return t.status === "DONE" || t.status === "FAILED"; });
+      var html = '<div class="space-y-0">';
+      sorted.forEach(function (t, idx) {
+        var isLast = idx === sorted.length - 1;
+        var icon, iconCls, nameCls, statusHtml;
+        if (t.status === "DONE") {
+          icon = "\u2713";
+          iconCls = "bg-green-500 text-white";
+          nameCls = "text-slate-400 line-through decoration-slate-600";
+          statusHtml = '<span class="text-xs text-green-400 font-medium">DONE</span>';
+        } else if (t.status === "RUNNING") {
+          icon = "\u25b6";
+          iconCls = "bg-yellow-400 text-gray-900 animate-pulse";
+          nameCls = "text-white font-semibold";
+          statusHtml = '<span class="text-xs text-yellow-400 font-semibold">RUNNING</span>';
+        } else if (t.status === "FAILED") {
+          icon = "\u2717";
+          iconCls = "bg-red-500 text-white";
+          nameCls = "text-red-300";
+          statusHtml = '<span class="text-xs text-red-400 font-medium">FAILED</span>';
+        } else if (execCompleted) {
+          icon = "\u25cb";
+          iconCls = "bg-slate-900 text-slate-700 border border-slate-700";
+          nameCls = "text-slate-600";
+          statusHtml = '<span class="text-xs text-slate-500 italic">SKIPPED \u00b7 branch not taken</span>';
+        } else {
+          icon = "\u25cb";
+          iconCls = "bg-slate-800 text-slate-500 border border-slate-600";
+          nameCls = "text-slate-500";
+          statusHtml = '<span class="text-xs text-slate-600">PENDING</span>';
+        }
+        html += '<div class="flex items-start gap-3">';
+        html +=   '<div class="flex flex-col items-center shrink-0">';
+        html +=     '<div class="flex h-8 w-8 items-center justify-center rounded-full text-sm font-bold ' + iconCls + '">' + icon + '</div>';
+        if (!isLast) html += '<div class="w-px h-6 bg-slate-700"></div>';
+        html +=   '</div>';
+        html +=   '<div class="pt-1 pb-3">';
+        html +=     '<div class="' + nameCls + ' text-sm font-medium leading-none mb-1">' + t.name + '</div>';
+        html +=     statusHtml;
+        html +=   '</div>';
+        html += '</div>';
+      });
+      html += '</div>';
+      container.innerHTML = html;
+    }
+
+    function renderCurrentTransition(tasks, transitions) {
+      var panel = document.getElementById("current-transition-panel");
+      if (!panel) return;
+      var running = null;
+      for (var i = 0; i < tasks.length; i++) {
+        if (tasks[i].status === "RUNNING") { running = tasks[i]; break; }
+      }
+      if (!running || !transitions || !transitions.length) {
+        panel.innerHTML = '<p class="text-slate-500 text-xs italic text-center py-4">Waiting for execution…</p>';
+        return;
+      }
+      var outgoing = transitions.filter(function (tr) { return tr.from_task_id === running.id; });
+      if (!outgoing.length) {
+        panel.innerHTML = '<div class="text-center"><div class="text-sm font-semibold text-yellow-300 mb-2">' + running.name + '</div><p class="text-slate-500 text-xs">Terminal node</p></div>';
+        return;
+      }
+      var taskMap = {};
+      tasks.forEach(function (t) { taskMap[t.id] = t.name; });
+      var html = '<div class="text-center">';
+      html += '<div class="text-sm font-semibold text-yellow-300 mb-3">' + running.name + '</div>';
+      outgoing.forEach(function (tr) {
+        var condCls = tr.condition === "SUCCESS"
+          ? "bg-green-500/15 text-green-300 border border-green-500/30"
+          : tr.condition === "FAILURE"
+          ? "bg-red-500/15 text-red-300 border border-red-500/30"
+          : "bg-slate-500/15 text-slate-300 border border-slate-500/30";
+        var toName = taskMap[tr.to_task_id] || ("Task #" + tr.to_task_id);
+        html += '<div class="flex flex-col items-center gap-1 mb-3">';
+        html +=   '<span class="inline-flex rounded-full px-2 py-0.5 text-xs font-semibold ' + condCls + '">' + (tr.condition || "ALWAYS") + '</span>';
+        html +=   '<span class="text-slate-500 text-base leading-none">↓</span>';
+        html +=   '<span class="text-sm font-medium text-slate-300">' + toName + '</span>';
+        html += '</div>';
+      });
+      html += '</div>';
+      panel.innerHTML = html;
+    }
+
     function applyDashboardFromTasks(allTasks) {
       var wfId = getCurrentWorkflowId();
       var ft = filterTasksForWorkflow(allTasks, wfId);
       renderTasks(ft, wfId);
       updateProgressBar(ft);
-      drawGraph(ft);
+      ensureTransitionsLoaded(wfId);
+      drawGraph(ft, currentTransitions);
+      renderRuntimeMonitor(ft);
+      renderCurrentTransition(ft, currentTransitions);
+      renderWorkflowSummary(ft, currentTransitions);
     }
 
     async function pollTasksLoop() {
@@ -444,9 +1124,18 @@
           lastStatuses[key] = t.status;
         });
         updateProgressBar(tasks);
-        drawGraph(tasks);
+        ensureTransitionsLoaded(wid);
+        drawGraph(tasks, currentTransitions);
+        renderRuntimeMonitor(tasks);
+        renderCurrentTransition(tasks, currentTransitions);
+        renderWorkflowSummary(tasks, currentTransitions);
         var allDone = tasks.every(function (t) { return t.status === "DONE"; });
-        if (allDone) stopTimelinePolling();
+        var execFinished = !tasks.some(function (t) { return t.status === "RUNNING"; }) &&
+          tasks.some(function (t) { return t.status === "DONE" || t.status === "FAILED"; });
+        if (allDone || execFinished) {
+          stopTimelinePolling();
+          resetExecutionControls();
+        }
       } catch (e) {}
     }
 
@@ -554,6 +1243,9 @@
           return [];
         }
         var list = Array.isArray(data) ? data : [];
+        _wfTaskCounts = {};
+        list.forEach(function (t) { _wfTaskCounts[String(t.workflow_id)] = (_wfTaskCounts[String(t.workflow_id)] || 0) + 1; });
+        if (_lastCardList.length) renderWorkflowCards(_lastCardList);
         applyDashboardFromTasks(list);
         if (!opts.silent) log("Tasks refreshed (" + list.length + " total).", "info");
         return list;
@@ -589,7 +1281,13 @@
           }
           function makeDiv(t) { var d = document.createElement("div"); d.textContent = t; return d; }
           if (messageStr.includes("Task")) { timelineBox.appendChild(makeDiv(text)); }
-          if (messageStr.includes("EVENT")) { eventBox.appendChild(makeDiv(text)); }
+          if (messageStr.includes("EVENT") || /task_started|task_completed|task_failed|transition/i.test(messageStr)) {
+            var ts2 = isObj ? (line.timestamp || "").slice(11, 19) : "";
+            var evEl = document.createElement("div");
+            evEl.className = "border-b border-slate-800/50 last:border-0";
+            evEl.innerHTML = formatEventEntry(messageStr, ts2);
+            eventBox.appendChild(evEl);
+          }
           logBox.appendChild(makeDiv(text));
         });
         timelineBox.scrollTop = timelineBox.scrollHeight;
@@ -659,6 +1357,142 @@
       }
     }
 
+    var WORKFLOW_META = {
+      "Payment": {
+        icon: "💳",
+        description: "Financial workflow with fraud validation and retry handling",
+        features: ["Branching", "Retry Loop"],
+        accent: "amber"
+      },
+      "Order": {
+        icon: "📦",
+        description: "Logistics workflow with inventory-based decisions",
+        features: ["Conditional Flow"],
+        accent: "blue"
+      },
+      "Document": {
+        icon: "📄",
+        description: "Approval workflow with revision cycles",
+        features: ["Review Loop"],
+        accent: "violet"
+      }
+    };
+
+    var ACCENT = {
+      amber:  { border: "border-amber-500",  ring: "ring-amber-500",  badge: "bg-amber-500/15 text-amber-300 border border-amber-500/30",   iconBg: "bg-amber-500/20 text-amber-300" },
+      blue:   { border: "border-blue-500",   ring: "ring-blue-500",   badge: "bg-blue-500/15 text-blue-300 border border-blue-500/30",     iconBg: "bg-blue-500/20 text-blue-300"   },
+      violet: { border: "border-violet-500", ring: "ring-violet-500", badge: "bg-violet-500/15 text-violet-300 border border-violet-500/30", iconBg: "bg-violet-500/20 text-violet-300" },
+      slate:  { border: "border-slate-500",  ring: "ring-slate-500",  badge: "bg-slate-500/15 text-slate-300 border border-slate-500/30",  iconBg: "bg-slate-500/20 text-slate-300"  }
+    };
+
+    function metaForWorkflow(name) {
+      var keys = Object.keys(WORKFLOW_META);
+      for (var i = 0; i < keys.length; i++) {
+        if (name.indexOf(keys[i]) !== -1) return WORKFLOW_META[keys[i]];
+      }
+      return { icon: "⚙️", description: name, features: [], accent: "slate" };
+    }
+
+    var _lastCardList = [];
+
+    function renderWorkflowCards(list) {
+      var container = document.getElementById("workflow-cards");
+      if (!container) return;
+      _lastCardList = list || [];
+      var _demoKeys = ["Payment", "Order", "Document"];
+      function _isExecutable(w) {
+        for (var _di = 0; _di < _demoKeys.length; _di++) {
+          if (w.name.indexOf(_demoKeys[_di]) !== -1) return true;
+        }
+        return (_wfTaskCounts[String(w.id)] || 0) >= 1 && !!_wfHasTransitions[String(w.id)];
+      }
+      var executable = _lastCardList.filter(_isExecutable);
+      var hidden = _lastCardList.filter(function (w) { return !_isExecutable(w); });
+      var hiddenEl = document.getElementById("workflow-management-hidden");
+      if (hiddenEl) {
+        if (hidden.length) {
+          hiddenEl.innerHTML = '<p class="text-xs text-slate-500 mb-2">Workflows not yet in Library (no tasks/transitions):</p>'
+            + hidden.map(function (w) { return '<span class="inline-flex text-xs text-slate-400 bg-slate-700/50 rounded px-2 py-0.5 mr-1 mb-1">' + w.name + '</span>'; }).join("");
+        } else {
+          hiddenEl.innerHTML = "";
+        }
+      }
+      if (executable.length === 0) {
+        container.innerHTML = '<p class="text-slate-500 text-sm italic py-2">No workflows found. Run <code class="bg-slate-700/60 rounded px-1 text-slate-300">python -m scripts.seed_all_demos</code> to load demo data.</p>';
+        return;
+      }
+      var selectedId = String(selWorkflow.value);
+      var html = '<div class="grid grid-cols-1 sm:grid-cols-3 gap-4">';
+      executable.forEach(function (w) {
+        var meta = metaForWorkflow(w.name);
+        var ac   = ACCENT[meta.accent] || ACCENT.slate;
+        var isSel = String(w.id) === selectedId;
+        var cardCls = isSel
+          ? "wf-card rounded-xl bg-slate-800 border-2 " + ac.border + " ring-2 " + ac.ring + " shadow-lg p-5 text-left transition-all duration-150 focus:outline-none"
+          : "wf-card rounded-xl bg-slate-800/50 hover:bg-slate-800/80 border border-slate-700/50 hover:" + ac.border + " shadow p-5 text-left transition-all duration-150 focus:outline-none";
+        var badges = meta.features.map(function (f) {
+          return '<span class="inline-flex items-center rounded-full text-xs font-medium px-2 py-0.5 ' + ac.badge + '">' + f + '</span>';
+        }).join(" ");
+        html += '<button type="button" data-wf-id="' + w.id + '" class="' + cardCls + '">';
+        html +=   '<div class="flex items-start gap-3 mb-3">';
+        html +=     '<span class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl text-xl ' + ac.iconBg + '">' + meta.icon + '</span>';
+        html +=     '<div>';
+        html +=       '<div class="font-semibold text-white text-sm leading-tight">' + w.name + '</div>';
+        var nodeCount = _wfTaskCounts[String(w.id)] || 0;
+        var trCount = typeof _wfHasTransitions[String(w.id)] === 'number' ? _wfHasTransitions[String(w.id)] : 0;
+        html +=       '<div class="text-xs text-slate-500 mt-0.5">' + nodeCount + ' nodes  ·  ' + trCount + ' transitions</div>';
+        html +=     '</div>';
+        html +=   '</div>';
+        html +=   '<div class="flex flex-wrap gap-1.5">' + badges + '</div>';
+        html += '</button>';
+      });
+      html += '</div>';
+      html += '<p class="text-xs text-slate-500 mt-3">Showing executable workflow definitions</p>';
+      container.innerHTML = html;
+      container.querySelectorAll(".wf-card").forEach(function (btn) {
+        btn.addEventListener("click", function () {
+          selWorkflow.value = btn.getAttribute("data-wf-id");
+          selWorkflow.dispatchEvent(new Event("change"));
+          renderWorkflowCards(_lastCardList);
+        });
+      });
+    }
+
+    async function loadRunHistory() {
+      var wid = getCurrentWorkflowId();
+      var tbody = document.getElementById("run-history-body");
+      if (!tbody) return;
+      if (!wid) {
+        tbody.innerHTML = '<tr><td colspan="4" class="px-4 py-5 text-center text-slate-500 text-sm italic">Select a workflow to see its execution history.</td></tr>';
+        return;
+      }
+      try {
+        var res = await fetch("/workflow_runs/" + wid);
+        if (!res.ok) return;
+        var runs = await res.json();
+        if (!Array.isArray(runs) || runs.length === 0) {
+          tbody.innerHTML = '<tr><td colspan="4" class="px-4 py-5 text-center text-slate-500 text-sm italic">No executions yet for this workflow.</td></tr>';
+          return;
+        }
+        runs.sort(function (a, b) { return (b.started_at || "").localeCompare(a.started_at || ""); });
+        tbody.innerHTML = runs.map(function (r) {
+          var shortId = r.id.substring(0, 8) + "…";
+          var modeLabel = r.mode === "orchestration" ? "⚙️ Orchestration" : "📡 Choreography";
+          var statusCls, statusIcon;
+          if (r.status === "COMPLETED") { statusCls = "text-green-400"; statusIcon = "✓"; }
+          else if (r.status === "FAILED") { statusCls = "text-red-400"; statusIcon = "✗"; }
+          else { statusCls = "text-yellow-400"; statusIcon = "⏳"; }
+          var startedAt = r.started_at ? new Date(r.started_at).toLocaleTimeString() : "—";
+          return '<tr class="border-b border-slate-700/50 hover:bg-slate-800/30 transition-colors">'
+            + '<td class="px-4 py-2.5 font-mono text-xs text-slate-400">' + shortId + '</td>'
+            + '<td class="px-4 py-2.5 text-sm text-slate-300">' + modeLabel + '</td>'
+            + '<td class="px-4 py-2.5 text-sm font-medium ' + statusCls + '">' + statusIcon + ' ' + r.status + '</td>'
+            + '<td class="px-4 py-2.5 text-xs text-slate-500 hidden sm:table-cell">' + startedAt + '</td>'
+            + '</tr>';
+        }).join("");
+      } catch (e) {}
+    }
+
     async function loadWorkflows(opts) {
       opts = opts || {};
       try {
@@ -672,7 +1506,14 @@
         }
         var all = Array.isArray(data) ? data : [];
         var uid = parseInt(selUser.value, 10);
-        var list = Number.isFinite(uid) ? all.filter(function (w) { return w.user_id === uid; }) : [];
+        var _demoShow = ["Payment", "Order", "Document"];
+        var list = all.filter(function (w) {
+          if (Number.isFinite(uid) && w.user_id === uid) return true;
+          for (var _i = 0; _i < _demoShow.length; _i++) {
+            if (w.name.indexOf(_demoShow[_i]) !== -1) return true;
+          }
+          return false;
+        });
         var prev = selWorkflow.value;
         selWorkflow.innerHTML = "";
         var w0 = document.createElement("option");
@@ -686,15 +1527,190 @@
           selWorkflow.appendChild(o);
         });
         if (opts.selectId != null) selWorkflow.value = String(opts.selectId);
+        else if (opts.selectFirst && list.length > 0) selWorkflow.value = String(list[0].id);
         else if (prev && Array.from(selWorkflow.options).some(function (x) { return x.value === prev; })) selWorkflow.value = prev;
         updateContextLines();
         if (!opts.silent) log("Workflows loaded (" + list.length + ").", "info");
+        renderWorkflowCards(list);
+        list.forEach(function (w) {
+          fetch("/workflows/" + w.id + "/transitions")
+            .then(function (res) { return res.ok ? res.json() : []; })
+            .then(function (data) {
+              if (Array.isArray(data) && data.length > 0) {
+                _wfHasTransitions[String(w.id)] = data.length;
+                if (_lastCardList.length) renderWorkflowCards(_lastCardList);
+              }
+            })
+            .catch(function () {});
+        });
         return list;
       } catch (e) {
         log("Workflows: " + String(e), "error");
         return [];
       }
     }
+
+    // ── WORKFLOW DESIGNER ──────────────────────────────────────────────────
+    function designerGetStepNames() {
+      return Array.from(document.querySelectorAll("#designer-steps-list .designer-step-input"))
+        .map(function (inp) { return inp.value.trim(); });
+    }
+
+    function designerBuildStepOptions(curVal) {
+      var names = designerGetStepNames();
+      if (!names.length) return '<option value="">— add steps first —</option>';
+      return names.map(function (n, i) {
+        var label = n || "Step " + (i + 1);
+        return '<option value="' + i + '"' + (String(i) === String(curVal) ? " selected" : "") + ">" + label + "</option>";
+      }).join("");
+    }
+
+    function designerSyncTransitionSelects() {
+      document.querySelectorAll("#designer-transitions-list .designer-tr-from, #designer-transitions-list .designer-tr-to")
+        .forEach(function (sel) {
+          var cur = sel.value;
+          sel.innerHTML = designerBuildStepOptions(cur);
+        });
+    }
+
+    function designerMakeStepRow(idx) {
+      var div = document.createElement("div");
+      div.className = "designer-step-row flex items-center gap-2";
+      div.innerHTML =
+        '<span class="shrink-0 w-5 text-right text-xs text-slate-500">' + (idx + 1) + "</span>"
+        + '<input type="text" class="designer-step-input flex-1 rounded-lg bg-slate-800 border border-slate-600 px-3 py-1.5 text-sm text-white placeholder-slate-500 focus:outline-none focus:ring-1 focus:ring-cyan-500" placeholder="Step name\u2026" />'
+        + '<button type="button" class="designer-step-remove shrink-0 text-slate-500 hover:text-red-400 transition text-sm px-1" title="Remove">\u2715</button>';
+      div.querySelector(".designer-step-input").addEventListener("input", designerSyncTransitionSelects);
+      div.querySelector(".designer-step-remove").addEventListener("click", function () {
+        div.remove();
+        document.querySelectorAll("#designer-steps-list .designer-step-row").forEach(function (r, i) {
+          var sp = r.querySelector("span");
+          if (sp) sp.textContent = i + 1;
+        });
+        designerSyncTransitionSelects();
+      });
+      return div;
+    }
+
+    function designerMakeTransitionRow() {
+      var opts = designerBuildStepOptions(-1);
+      var div = document.createElement("div");
+      div.className = "designer-tr-row flex flex-wrap items-center gap-2";
+      div.innerHTML =
+        '<select class="designer-tr-from rounded-lg bg-slate-800 border border-slate-600 px-2 py-1.5 text-xs text-white focus:outline-none focus:ring-1 focus:ring-violet-500">' + opts + "</select>"
+        + '<select class="designer-tr-cond rounded-lg bg-slate-800 border border-slate-600 px-2 py-1.5 text-xs font-medium text-white focus:outline-none focus:ring-1 focus:ring-violet-500">'
+        +   '<option value="SUCCESS">SUCCESS</option>'
+        +   '<option value="FAILURE">FAILURE</option>'
+        +   '<option value="ALWAYS">ALWAYS</option>'
+        + "</select>"
+        + '<span class="text-slate-500 text-xs select-none">\u2192</span>'
+        + '<select class="designer-tr-to rounded-lg bg-slate-800 border border-slate-600 px-2 py-1.5 text-xs text-white focus:outline-none focus:ring-1 focus:ring-violet-500">' + opts + "</select>"
+        + '<button type="button" class="designer-tr-remove shrink-0 text-slate-500 hover:text-red-400 transition text-sm px-1" title="Remove">\u2715</button>';
+      div.querySelector(".designer-tr-remove").addEventListener("click", function () { div.remove(); });
+      return div;
+    }
+
+    document.getElementById("designer-add-step").addEventListener("click", function () {
+      var list = document.getElementById("designer-steps-list");
+      list.appendChild(designerMakeStepRow(list.querySelectorAll(".designer-step-row").length));
+      designerSyncTransitionSelects();
+    });
+
+    document.getElementById("designer-add-transition").addEventListener("click", function () {
+      var statusEl = document.getElementById("designer-status");
+      if (!designerGetStepNames().length) {
+        statusEl.className = "text-xs text-amber-400";
+        statusEl.textContent = "Add at least one step first.";
+        return;
+      }
+      statusEl.textContent = "";
+      document.getElementById("designer-transitions-list").appendChild(designerMakeTransitionRow());
+    });
+
+    document.getElementById("designer-save").addEventListener("click", async function () {
+      var statusEl = document.getElementById("designer-status");
+      var saveBtn = this;
+      statusEl.className = "text-xs text-slate-400";
+      statusEl.textContent = "";
+
+      var wfName = document.getElementById("designer-wf-name").value.trim();
+      if (!wfName) { statusEl.textContent = "Workflow name is required."; return; }
+
+      var stepNames = designerGetStepNames();
+      if (!stepNames.length) { statusEl.textContent = "Add at least one step (node)."; return; }
+      if (stepNames.some(function (n) { return !n; })) { statusEl.textContent = "All step names must be filled in."; return; }
+
+      var trRows = Array.from(document.querySelectorAll("#designer-transitions-list .designer-tr-row"));
+      var trDefs = trRows.map(function (row) {
+        return {
+          fromIdx: parseInt(row.querySelector(".designer-tr-from").value, 10),
+          condition: row.querySelector(".designer-tr-cond").value,
+          toIdx:    parseInt(row.querySelector(".designer-tr-to").value, 10),
+        };
+      });
+
+      var userId = parseInt(selUser.value, 10);
+      if (!Number.isFinite(userId)) {
+        statusEl.textContent = "No user selected. A user is required to own the workflow.";
+        return;
+      }
+
+      saveBtn.disabled = true;
+      try {
+        statusEl.textContent = "Creating workflow\u2026";
+        var wfRes = await apiPost("/workflows", { name: wfName, user_id: userId });
+        if (!wfRes.ok) {
+          statusEl.textContent = "Failed: " + (wfRes.data && wfRes.data.detail ? wfRes.data.detail : wfRes.status);
+          return;
+        }
+        var wfId = wfRes.data.id;
+
+        var taskIds = [];
+        for (var i = 0; i < stepNames.length; i++) {
+          statusEl.textContent = "Adding step " + (i + 1) + " / " + stepNames.length + "\u2026";
+          var tRes = await apiPost("/tasks", { name: stepNames[i], workflow_id: wfId, order: i + 1 });
+          if (!tRes.ok) {
+            statusEl.textContent = "Step \u201c" + stepNames[i] + "\u201d failed: " + (tRes.data && tRes.data.detail ? tRes.data.detail : tRes.status);
+            return;
+          }
+          taskIds.push(tRes.data.id);
+        }
+
+        for (var j = 0; j < trDefs.length; j++) {
+          var tr = trDefs[j];
+          statusEl.textContent = "Adding transition " + (j + 1) + " / " + trDefs.length + "\u2026";
+          var trRes = await apiPost("/workflows/" + wfId + "/transitions", {
+            from_task_id: taskIds[tr.fromIdx],
+            to_task_id:   taskIds[tr.toIdx],
+            condition:    tr.condition,
+            priority:     j,
+          });
+          if (!trRes.ok) {
+            statusEl.textContent = "Transition failed: " + (trRes.data && trRes.data.detail ? trRes.data.detail : trRes.status);
+            return;
+          }
+        }
+
+        // Pre-populate filter caches so the new card is immediately visible
+        _wfTaskCounts[String(wfId)] = taskIds.length;
+        if (trDefs.length > 0) _wfHasTransitions[String(wfId)] = trDefs.length;
+        currentTransitionsWfId = null;
+        await loadWorkflows({ selectId: wfId, silent: true });
+        selWorkflow.dispatchEvent(new Event("change"));
+        await loadTasks({});
+
+        document.getElementById("designer-wf-name").value = "";
+        document.getElementById("designer-steps-list").innerHTML = "";
+        document.getElementById("designer-transitions-list").innerHTML = "";
+        statusEl.className = "text-xs text-emerald-400";
+        statusEl.textContent = "\u2713 \u201c" + wfName + "\u201d saved \u2014 graph loaded in section B.";
+      } catch (e) {
+        statusEl.textContent = "Error: " + String(e);
+      } finally {
+        saveBtn.disabled = false;
+      }
+    });
+    // ── END WORKFLOW DESIGNER ──────────────────────────────────────────────
 
     selUser.addEventListener("change", function () {
       updateContextLines();
@@ -703,6 +1719,7 @@
     selWorkflow.addEventListener("change", function () {
       updateContextLines();
       loadTasks({ silent: true });
+      loadRunHistory();
     });
 
     async function apiPost(url, body) {
@@ -738,6 +1755,7 @@
       logExec("Execution log cleared.");
     });
     document.getElementById("btn-refresh-tasks").addEventListener("click", function () {
+      currentTransitionsWfId = null; // force transitions re-fetch on manual refresh
       loadTasks({});
     });
 
@@ -827,61 +1845,100 @@
       return id;
     }
 
-    document.getElementById("btn-orch").addEventListener("click", async function () {
-      var wid = workflowIdOrError();
-      if (wid === null) return;
+    function resetExecutionControls() {
+      var btn = document.getElementById("btn-start-execution");
+      if (btn) {
+        btn.disabled = false;
+        btn.textContent = "\u25b6 Start Workflow Execution";
+      }
+    }
+
+    async function runExecution(wid, mode) {
+      var isOrch = (mode === "orchestration");
       startTimelinePolling(wid);
+      logEvent("workflow_started → Workflow #" + wid + " (" + mode + ")");
       logExec("Workflow started");
-      logExec("Execution started (mode: orchestration)");
-      log("Running orchestration for workflow " + wid + "…", "info");
+      logExec("Execution started (mode: " + mode + ")");
+      log("Running " + mode + " for workflow " + wid + "…", "info");
       try {
-        var r = await apiPostEmpty("/execute/" + wid);
+        var r = await apiPostEmpty(isOrch ? "/execute/" + wid : "/execute_choreo/" + wid);
         if (r.ok) {
-          var tasksSnap = await loadTasks({ silent: true });
-          logExecWorkflowTasks(wid, tasksSnap);
+          var snap = await loadTasks({ silent: true });
+          logExecWorkflowTasks(wid, snap);
           logExec("Result: " + JSON.stringify(r.data));
-          log("Orchestration completed: " + JSON.stringify(r.data), "ok");
+          log(mode.charAt(0).toUpperCase() + mode.slice(1) + " completed: " + JSON.stringify(r.data), "ok");
           await loadTasks({});
+          await loadRunHistory();
         } else {
           logExec("Error: " + (typeof r.data === "string" ? r.data : JSON.stringify(r.data)));
-          log("Orchestration failed (" + r.status + "): " + (typeof r.data === "string" ? r.data : JSON.stringify(r.data)), "error");
+          log(mode + " failed (" + r.status + "): " + (typeof r.data === "string" ? r.data : JSON.stringify(r.data)), "error");
         }
       } finally {
         stopTimelinePolling();
         archAllDone();
       }
+    }
+
+    document.getElementById("btn-orch").addEventListener("click", async function () {
+      var wid = workflowIdOrError();
+      if (wid === null) return;
+      await runExecution(wid, "orchestration");
     });
 
     document.getElementById("btn-choreo").addEventListener("click", async function () {
       var wid = workflowIdOrError();
       if (wid === null) return;
-      startTimelinePolling(wid);
-      logExec("Workflow started");
-      logExec("Execution started (mode: choreography)");
-      log("Running choreography for workflow " + wid + "…", "info");
+      await runExecution(wid, "choreography");
+    });
+
+    document.getElementById("btn-start-execution").addEventListener("click", async function () {
+      var isOrch = document.getElementById("exec-mode-orch").checked;
+      var wid = workflowIdOrError();
+      if (wid === null) return;
+      var btnStart = document.getElementById("btn-start-execution");
+      btnStart.disabled = true;
+      btnStart.textContent = "⏳ Executing…";
       try {
-        var r = await apiPostEmpty("/execute_choreo/" + wid);
-        if (r.ok) {
-          var tasksSnap2 = await loadTasks({ silent: true });
-          logExecWorkflowTasks(wid, tasksSnap2);
-          logExec("Result: " + JSON.stringify(r.data));
-          log("Choreography completed: " + JSON.stringify(r.data), "ok");
-          await loadTasks({});
-        } else {
-          logExec("Error: " + (typeof r.data === "string" ? r.data : JSON.stringify(r.data)));
-          log("Choreography failed (" + r.status + "): " + (typeof r.data === "string" ? r.data : JSON.stringify(r.data)), "error");
-        }
+        await runExecution(wid, isOrch ? "orchestration" : "choreography");
       } finally {
-        stopTimelinePolling();
-        archAllDone();
+        btnStart.disabled = false;
+        btnStart.textContent = "▶ Start Workflow Execution";
+      }
+    });
+
+    document.getElementById("btn-reset-execution").addEventListener("click", async function () {
+      var wid = workflowIdOrError();
+      if (wid === null) return;
+      var btn = this;
+      btn.disabled = true;
+      btn.textContent = "Resetting…";
+      try {
+        var r = await apiPostEmpty("/workflows/" + wid + "/reset");
+        if (r.ok) {
+          stopTimelinePolling();
+          resetExecutionControls();
+          lastStatuses = {};
+          archResetAllIdle();
+          logEvent("workflow_reset \u2192 All tasks reset to PENDING");
+          logExec("Workflow reset \u2014 ready for new execution");
+          await loadTasks({});
+          await loadRunHistory();
+        } else {
+          log("Reset failed (" + r.status + "): " + (typeof r.data === "string" ? r.data : JSON.stringify(r.data)), "error");
+        }
+      } catch (e) {
+        log("Reset error: " + String(e), "error");
+      } finally {
+        btn.disabled = false;
+        btn.textContent = "\u21ba Reset Execution";
       }
     });
 
     log("Ready. Server logs print in the terminal during execution.", "info");
     loadUsers({ selectFirst: true }).then(function () {
-      return loadWorkflows({});
+      return loadWorkflows({ selectFirst: true });
     }).then(function () {
-      return loadTasks({});
+      return loadTasks({ silent: true });
     });
     loadLogs();
     setInterval(loadLogs, 1000);
