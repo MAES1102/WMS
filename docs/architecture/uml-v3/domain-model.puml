@@ -1,0 +1,99 @@
+@startuml
+title Invoice Workflow — Conceptual Domain Model (v3)
+hide methods
+skinparam classAttributeIconSize 0
+skinparam shadowing false
+
+class "Workflow Draft" as Draft <<definition>> {
+  identity
+  mutable configuration
+}
+class "Workflow Revision" as Revision <<immutable definition>> {
+  identity
+  revision number
+  activated at
+}
+class "Task Definition" as Task <<immutable definition>> {
+  identity
+  name
+  task type
+  attempt bound
+}
+class Transition <<immutable definition>> {
+  condition: SUCCESS | FAILURE | ALWAYS
+}
+class Invoice <<business state>> {
+  identity
+  submitted metadata
+  document identity
+  invoice state
+}
+class "Workflow Run" as Run <<run state>> {
+  identity
+  mode
+  run state
+}
+class "Execution Cursor" as Cursor <<run state>> {
+  current task
+  phase
+  state version
+  terminal decision
+}
+class "Task Attempt" as Attempt <<run state>> {
+  ordinal
+  outcome
+  failure class
+  reason
+}
+class "Approval Work Item" as WorkItem <<business/run state>> {
+  state
+}
+class "Approval Decision" as Decision <<business/run state>> {
+  approve or reject
+  note or reason
+}
+class "Archive Record" as Archive <<business state>>
+class "Internal Notification" as Notification <<business state>>
+class "Trace Entry" as Trace <<run state>> {
+  run-local position
+  observation kind
+}
+
+Draft "1" --> "0..*" Revision : activates
+Revision "1" *-- "1..*" Task
+Revision "1" *-- "0..*" Transition
+Transition "0..*" --> "1" Task : from
+Transition "0..*" --> "1" Task : to
+Revision "1" <-- "0..*" Run : executes
+Invoice "1" <-- "1" Run : processes
+Run "1" *-- "1" Cursor
+Run "1" *-- "0..*" Attempt
+Task "1" <-- "0..*" Attempt : automatic attempt of
+Run "1" *-- "0..1" WorkItem
+Invoice "1" <-- "0..1" WorkItem
+Task "1" <-- "0..*" WorkItem : human task of
+WorkItem "1" *-- "0..1" Decision
+Invoice "1" *-- "0..1" Archive
+Invoice "1" *-- "0..*" Notification
+Run "1" *-- "1..*" Trace
+
+note right of Revision
+Activated content never changes.
+Runs never reference a mutable draft.
+end note
+
+note right of Cursor
+Authoritative continuation state.
+EventBus memory is not authoritative.
+end note
+
+note bottom of WorkItem
+At most one item per run + human task.
+At most one authoritative decision.
+end note
+
+legend
+Conceptual UML only; tables, columns, and concrete classes are deferred.
+Definition, run, and invoice ownership boundaries are distinct.
+endlegend
+@enduml

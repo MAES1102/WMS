@@ -1,0 +1,49 @@
+@startuml
+title Invoice Workflow — Single-Service Deployment View (v3)
+skinparam shadowing false
+
+node "User device" as Client {
+  artifact "Browser" as Browser
+}
+
+node "Application host" as Host {
+  node "One FastAPI application process" as App {
+    component "HTTP + static UI" as HTTP
+    component "Application/domain modules" as Core
+    component "Run-scoped in-memory EventBus" as EventBus
+    component "Persistence adapters" as Persistence
+    component "Document/PDF adapter" as Documents
+    component "Third-party PDF library" as PdfLib <<library>>
+  }
+}
+
+database "Persistent database" as Database
+folder "Controlled document storage" as Storage
+
+Browser --> HTTP : client-server requests
+HTTP --> Core : in-process use cases
+Core --> EventBus : in-process choreography triggers
+Core --> Persistence : transactions and queries
+Core --> Documents : bounded document operations
+Persistence --> Database : definitions, invoices, runs,\napprovals, attempts, notifications, trace
+Documents --> Storage : generated identities only
+Documents --> PdfLib : open/readability/page checks
+
+note right of App
+Orchestration and choreography share this process.
+Restart recovery reads persistent cursors.
+EventBus holds no waiting state.
+end note
+
+note bottom of Storage
+No original filename selects a path.
+No OCR, AI extraction, or external document service.
+end note
+
+note "Absent: Kafka, ZooKeeper, distributed broker,\nmicroservices, external workflow engine,\npayment/accounting system, external email." as Exclusions
+
+legend
+Exact host, database engine, paths, volumes, and migration are later decisions.
+This is deployment design, not deployment evidence.
+endlegend
+@enduml

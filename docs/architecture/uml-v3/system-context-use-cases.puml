@@ -1,0 +1,52 @@
+@startuml
+title Invoice Workflow — System Context and Use Cases (v3)
+left to right direction
+skinparam shadowing false
+
+actor Submitter
+actor Approver
+actor "Workflow operator" as Operator
+actor "Academic evaluator" as Evaluator
+
+rectangle "Invoice workflow application" {
+  usecase "Submit invoice" as Submit
+  usecase "View invoice status" as Status
+  usecase "Review pending invoice" as Review
+  usecase "Approve or reject" as Decide
+  usecase "Configure workflow draft" as Configure
+  usecase "Validate and activate revision" as Activate
+  usecase "Inspect run trace" as Trace
+  usecase "Compare execution modes" as Compare
+}
+
+Submitter --> Submit
+Submitter --> Status
+Approver --> Review
+Approver --> Decide
+Operator --> Configure
+Operator --> Activate
+Operator --> Trace
+Evaluator --> Status
+Evaluator --> Trace
+Evaluator --> Compare
+
+Decide ..> Review : <<include>>
+Activate ..> Configure : <<include>>
+Compare ..> Trace : <<include>>
+
+note bottom of Submit
+One bounded PDF and metadata payload.
+No payment, OCR, or external email.
+end note
+
+note bottom of Compare
+Same revision, input, decision,
+and deterministic fault schedule.
+end note
+
+legend
+Requirements v3 3.0 — architecture review view.
+Logical roles only; authentication is outside scope.
+No implementation or executable result is claimed.
+endlegend
+@enduml

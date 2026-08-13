@@ -35,10 +35,10 @@ The activity model follows the four common software-process activities in `4 - S
 
 | Activity | Inputs | Outputs/products | Responsible role | Preconditions | Completion evidence | Current classification |
 |---|---|---|---|---|---|---|
-| Specification | Stakeholder need, feedback, approved change request | Requirements, acceptance conditions, scope boundaries, traceability | Student developer; reviewer approves | Problem and scope recorded | Reviewed requirements and links to source evidence | `APPROVED — Stage 3 requirements baseline`; version-controlled by the Stage 3 documentation commit |
-| Design and implementation | Approved requirements and architecture decisions | Domain model, persistence, resolver, execution modes, UI, deployment increment | Student developer | Relevant checkpoint approved | Reviewable diff, matching UML, deterministic verification | Checkpoint 4 passed substantive review and the architecture/ADR/UML baseline is approved; Git durability of the accepted architecture baseline is established by commit f44f0d55349af4e7b1b19b49f5e3b26c67c96181 and the independently verified origin/refactor/defense-core ref; checkpoint 5 and implementation are `NOT STARTED` |
+| Specification | Stakeholder need, feedback, approved change request | Requirements, acceptance conditions, scope boundaries, traceability | Student developer; reviewer approves | Problem and scope recorded | Reviewed requirements and links to source evidence | Requirements v3 3.0 and synchronized traceability are the current project-level approved specification baseline; no instructor approval or implementation evidence is claimed |
+| Design and implementation | Approved requirements and architecture decisions | Domain model, persistence, resolver, execution modes, UI, deployment increment | Student developer | Relevant checkpoint approved | Reviewable diff, matching UML, deterministic verification | C5A foundation source is published at `958d4f7f2b8b58dfb3cef2c3242082fa5a018ab0`; executable verification and complete checkpoint-5 acceptance are absent; affected implementation is paused for CR-002 review |
 | Verification and validation | Implemented increment and acceptance conditions | Test results, trace, review findings, release recommendation | Student developer; reviewer decides gate | Clean isolated environment and known baseline | Reproducible results and unchanged repository/runtime evidence | `PLANNED`; archive attempt is `INCONCLUSIVE` |
-| Evolution | Change proposal, preserved baseline, impact analysis, risk register | Controlled increments and updated traceability | Student developer; reviewer controls gates | Baseline and historical prototype preserved | Approved change artifacts and checkpoint evidence | `VERIFIED` through the reviewed and approved Stage 2 impact analysis |
+| Evolution | Change proposal, preserved baseline, impact analysis, risk register | Controlled increments and updated traceability | Student developer; reviewer controls gates | Baseline and historical prototype preserved | Approved change artifacts and checkpoint evidence | CR-001 is approved; its implementation progressed through the published C5A foundation without executable verification or full acceptance. CR-002 and Requirements v3 passed project-level review; no instructor or implementation approval is claimed. |
 
 The incremental approach is supported by `4 - SwProc.pdf`, slides 34-39: change creates rework; prototypes and increments can reduce change cost; incremental development supports feedback; and visibility and structural degradation require regular deliverables and refactoring. Plan-driven and agile elements may coexist (slide 6). The process therefore combines an explicit gate plan with incremental implementation.
 
@@ -57,7 +57,9 @@ The controlled workflow is:
 9. Release decision.
 10. Documentation and traceability update.
 
-Stage 2 created and committed [CR-001](../evolution/CR-001-defense-core-refactoring.md) and its approved impact analysis. Stage 3 establishes Requirements v2 as the approved requirements baseline at step 5 through the Stage 3 documentation commit. Checkpoint 4 passed substantive review and the architecture/ADR/UML baseline is approved; Git durability of the accepted architecture baseline is established by commit f44f0d55349af4e7b1b19b49f5e3b26c67c96181 and the independently verified origin/refactor/defense-core ref. Checkpoint 5, implementation, executable testing, deployment, and release work remain not started.
+Stage 2 created and committed [CR-001](../evolution/CR-001-defense-core-refactoring.md) and its approved impact analysis. Stage 3 established Requirements v2, and checkpoint 4 established the approved architecture/ADR/UML baseline. C5A later published definition, validation, resolver, and persistence-foundation source at `958d4f7f2b8b58dfb3cef2c3242082fa5a018ab0`; source presence is recorded by EV-027, not as executable verification or complete checkpoint-5 acceptance.
+
+FB-004 triggered [CR-002](../evolution/CR-002-invoice-approval-reference-application.md) at change-control steps 1-3. Project-level CR review, [Requirements v3](../requirements/requirements-v3.md), and the affected [architecture v3](../architecture/architecture-overview-v3.md) review passed on `2026-08-13`. Requirements v3 3.0 and architecture v3 are the current project-level specification/design baselines while Requirements v2 and checkpoint 4 remain historical. V3 implementation, executable testing, reference-browser acceptance, and OS-process restart verification have since completed at project level; external deployment and release have not started.
 
 The workflow is consistent with `11 - sw evolmaintenance.pdf`, slides 8-12: change proposals drive evolution, affected components support cost and impact estimation, and implementation follows requirements analysis and updating. Slides 17 and 24 frame useful-system change and functional enhancement; slides 33-34 and 55 support maintainability evidence, re-documentation, and continuous refactoring.
 
@@ -67,7 +69,7 @@ The workflow is consistent with `11 - sw evolmaintenance.pdf`, slides 8-12: chan
 |---|---|---|
 | `v1-linear-baseline` | Immutable annotated baseline tag peeling to `f5ea4d71ebb4082cebe4f7e7a8a5ad3fcdfbfbaa` | `VERIFIED` locally and remotely |
 | `archive/advanced-prototype` | Preserved historical prototype at `5d18b469b77beb22e6721f769fbd1b39223955a3` | `VERIFIED` locally and remotely |
-| `refactor/defense-core` | At the accepted Stage 1 boundary, the branch was at baseline commit `f5ea4d71ebb4082cebe4f7e7a8a5ad3fcdfbfbaa` with unchanged tracked tree and index and no upstream; Stage 2 adds exactly eight documentation files; Stage 3 adds the two requirements documents and updates four controlled process documents; neither stage changes source or configuration; the approved Stage 3 baseline is published at commit `6074fd7ef490ea3b08177e7a786035159f39a91c` on `origin/refactor/defense-core` | `VERIFIED` by the Stage 1, Stage 2, and Stage 3 checkpoint records and the remote ref |
+| `refactor/defense-core` | Preserves the staged evolution from the linear baseline through process, requirements, architecture, and the C5A foundation. The controlled CR-002 base is commit `958d4f7f2b8b58dfb3cef2c3242082fa5a018ab0` on `origin/refactor/defense-core`. | `VERIFIED` by the checkpoint records, EV-027, local Git, and the remote ref |
 | `main` | Unchanged baseline branch | `VERIFIED` locally and remotely |
 
 Commits and pushes require explicit approval. The controlled workflow prohibits reset, force push, and history rewriting. Branches and tags are not replaced or deleted as an implicit recovery action. This configuration-control approach is supported by `4 - SwProc.pdf`, slides 74-76, which discuss change/configuration management, iterative development, managed requirements, visual modeling, quality verification, and controlled software changes.
@@ -80,13 +82,13 @@ Only one checkpoint may advance at a time:
 2. Process documentation and change request - substantively reviewed and approved; durability established by the Stage 2 documentation commit.
 3. Requirements v2 - complete; substantively reviewed, approved, and committed by the Stage 3 documentation commit.
 4. Architecture, ADR, and UML baseline - substantively reviewed and `APPROVED — checkpoint 4 architecture baseline`; Git durability of the accepted architecture baseline is established by commit f44f0d55349af4e7b1b19b49f5e3b26c67c96181 and the independently verified origin/refactor/defense-core ref.
-5. Backend domain model - not started.
-6. Six execution tests - not started.
-7. UI - not started.
-8. Deployment - not started.
-9. Final report - not started.
+5. Backend domain-model foundation - C5A source published; executable verification and full acceptance incomplete.
+6. Execution verification - accepted at project application level by PBI-E23.
+7. UI - accepted for the reference Chromium desktop/mobile boundary by PBI-E24.
+8. Deployment - accepted for inventory and OS-process restart; container build was unavailable and is not claimed.
+9. Final report - reconciled and accepted at project level by PBI-E26; Git durability and instructor approval remain separate gates.
 
-Checkpoint-4 architecture/ADR/UML passed substantive review and is the approved design baseline. Git durability of the accepted architecture baseline is established by commit f44f0d55349af4e7b1b19b49f5e3b26c67c96181 and the independently verified origin/refactor/defense-core ref; checkpoint 5 and implementation remain `NOT STARTED`.
+The PBI-E17 [compatibility plan](../implementation/checkpoint-5a-v3-implementation-plan.md) and increments 5A.1–5A.3 passed project-level review. PBI-E18 provides bounded submission/validation. PBI-E19 provides persistent human waiting, one authoritative decision, same-cursor resume, and query projection. PBI-E20 provides centralized same-run execution, archive/manual-action effects, one final notification, and five passing orchestration scenarios. The E20A preview registers the invoice path through a separate database and makes it visible at `/ui` while preserving `/legacy-ui`. PBI-E21 adds run-scoped choreography, dual-mode runtime selection, ten scenario executions, five normalized pair comparisons, and subscriber cleanup. PBI-E22 adds bounded draft CRUD, closed-catalog configuration, full graph feedback, and immutable revision activation. PBI-E23 adds repeated normalized runs, exact trace expectations, file-backed restart/resume, threaded run isolation, complete PDF-to-no-approval boundaries, dependency inspection, and recorded status-read timing. PBI-E24 makes the persisted business result and next action explicit, defers trace/configuration details, and passes the reference Chromium desktop/mobile acceptance path in both modes. PBI-E25 replaces the broker compose topology with one persistent FastAPI target and verifies both modes across real process recreation. PBI-E26 reconciles the product-first report, vector UML, reuse disclosure, defense script, and final claim ledger. The next controlled action is configuration-management review, not another feature increment.
 
 A later stage may begin only after the previous checkpoint is reviewed. The applicable quality criteria are defined in the [Definition of Done](./definition-of-done.md), and current threats are tracked in the [risk register](./risk-register.md).
 
@@ -110,3 +112,6 @@ A later stage may begin only after the previous checkpoint is reviewed. The appl
 - [Risk register](./risk-register.md)
 - [Definition of Done](./definition-of-done.md)
 - [CR-001](../evolution/CR-001-defense-core-refactoring.md)
+- [CR-002](../evolution/CR-002-invoice-approval-reference-application.md)
+- [Requirements v3](../requirements/requirements-v3.md)
+- [Requirements v3 traceability](../requirements/requirements-traceability-v3.md)

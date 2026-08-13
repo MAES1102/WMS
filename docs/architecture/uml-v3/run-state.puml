@@ -1,0 +1,51 @@
+@startuml
+title Invoice Workflow — Run and Approval Lifecycle (v3)
+hide empty description
+skinparam shadowing false
+
+state "Definition candidate" as Candidate
+state "Rejected definition\n(no active revision/run)" as Rejected #LightGray
+state "RUNNING\nREADY" as Ready
+state "WAITING_FOR_APPROVAL" as Waiting
+state "COMPLETED" as Completed
+state "FAILED" as Failed
+
+[*] --> Candidate
+Candidate --> Rejected : validation violation
+Rejected --> [*]
+Candidate --> Ready : revision active + submission accepted
+
+Ready --> Waiting : pending work item + waiting trace committed
+Waiting --> Ready : first valid decision + resume cursor committed
+Ready --> Completed : handled terminal result committed
+Ready --> Failed : unhandled unsuccessful terminal committed
+
+Completed --> [*]
+Failed --> [*]
+
+note right of Waiting
+No active EventBus subscriber.
+State survives restart.
+Human decision is never retried.
+Identical replay changes nothing;
+a conflicting later decision is rejected.
+end note
+
+note right of Ready
+Cursor state version prevents
+concurrent double advancement.
+Retry commits an attempt and keeps the cursor READY.
+A selected transition advances the cursor.
+end note
+
+note bottom of Completed
+Business result may be ARCHIVED,
+REJECTED, VALIDATION_FAILED,
+or NEEDS_MANUAL_ACTION.
+end note
+
+legend
+Run state and invoice business state are separate.
+Every transition commits its trace observation in the same unit of work.
+endlegend
+@enduml
