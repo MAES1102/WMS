@@ -19,6 +19,32 @@ class TaskOutcome(str, Enum):
     FAILURE = "FAILURE"
 
 
+class ExecutionMode(str, Enum):
+    ORCHESTRATION = "orchestration"
+    CHOREOGRAPHY = "choreography"
+
+
+class TaskType(str, Enum):
+    """Closed task catalog for the invoice reference workflow (FR-049)."""
+
+    DOCUMENT_VALIDATION = "DOCUMENT_VALIDATION"
+    HUMAN_APPROVAL = "HUMAN_APPROVAL"
+    ARCHIVE_DOCUMENT = "ARCHIVE_DOCUMENT"
+    CREATE_NOTIFICATION = "CREATE_NOTIFICATION"
+
+    @property
+    def is_automatic(self) -> bool:
+        return self is not TaskType.HUMAN_APPROVAL
+
+
+class FailureClass(str, Enum):
+    """Failure meaning used by retry policy before transition resolution."""
+
+    BUSINESS = "BUSINESS"
+    RETRYABLE_TECHNICAL = "RETRYABLE_TECHNICAL"
+    NON_RETRYABLE_TECHNICAL = "NON_RETRYABLE_TECHNICAL"
+
+
 class TerminalDecision(str, Enum):
     """Terminal classification produced by the resolver (FR-011/012)."""
 
@@ -32,8 +58,43 @@ class TaskDefinition:
 
     id: int
     name: str
+    task_type: TaskType
     is_start: bool
-    max_attempts: int
+    max_attempts: int | None
+
+
+@dataclass(frozen=True)
+class TaskResult:
+    """Controlled result returned by an automatic task executor."""
+
+    outcome: TaskOutcome
+    failure_class: FailureClass | None = None
+    reason: str | None = None
+
+    def __post_init__(self) -> None:
+        try:
+            normalized_outcome = TaskOutcome(self.outcome)
+        except (TypeError, ValueError) as exc:
+            raise ValueError(f"Unsupported task outcome {self.outcome!r}") from exc
+        object.__setattr__(self, "outcome", normalized_outcome)
+
+        normalized_failure = self.failure_class
+        if normalized_failure is not None:
+            try:
+                normalized_failure = FailureClass(normalized_failure)
+            except (TypeError, ValueError) as exc:
+                raise ValueError(
+                    f"Unsupported failure class {self.failure_class!r}"
+                ) from exc
+            object.__setattr__(self, "failure_class", normalized_failure)
+
+        if (
+            normalized_outcome is TaskOutcome.SUCCESS
+            and normalized_failure is not None
+        ):
+            raise ValueError("A successful task result cannot have a failure class")
+        if normalized_outcome is TaskOutcome.FAILURE and normalized_failure is None:
+            raise ValueError("A failed task result requires a failure class")
 
 
 @dataclass(frozen=True)

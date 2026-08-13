@@ -311,4 +311,11 @@ def execute_workflow_choreo(
 
 @router.get("/ui")
 def workflow_ui():
+    return FileResponse(
+        os.path.join(os.path.dirname(__file__), "static", "invoices.html")
+    )
+
+
+@router.get("/legacy-ui")
+def legacy_workflow_ui():
     return FileResponse(os.path.join(os.path.dirname(__file__), "static", "index.html"))

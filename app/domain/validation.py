@@ -3,7 +3,7 @@
 from collections import defaultdict, deque
 from dataclasses import dataclass
 
-from app.domain.types import TransitionCondition, WorkflowDefinition
+from app.domain.types import TaskType, TransitionCondition, WorkflowDefinition
 
 
 @dataclass(frozen=True)
@@ -40,12 +40,28 @@ def validate_workflow_definition(defn: WorkflowDefinition) -> None:
         )
 
     for task in sorted(defn.tasks, key=lambda item: item.id):
-        if task.max_attempts < 1:
+        try:
+            task_type = TaskType(task.task_type)
+        except (TypeError, ValueError):
+            issues.append(
+                ValidationIssue(
+                    "FR-049",
+                    f"Task {task.id} ({task.name!r}) has unsupported "
+                    f"task_type={task.task_type!r}",
+                )
+            )
+            continue
+
+        if task_type.is_automatic and (
+            not isinstance(task.max_attempts, int)
+            or isinstance(task.max_attempts, bool)
+            or task.max_attempts < 1
+        ):
             issues.append(
                 ValidationIssue(
                     "FR-021",
-                    f"Task {task.id} ({task.name!r}) has non-positive "
-                    f"max_attempts={task.max_attempts}",
+                    f"Automatic task {task.id} ({task.name!r}) requires a positive "
+                    f"max_attempts; received {task.max_attempts!r}",
                 )
             )
 

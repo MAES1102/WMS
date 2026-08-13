@@ -1,4 +1,10 @@
 """Shared pytest fixtures for the Workflow Management System test suite."""
+import os
+
+os.environ.setdefault("INVOICE_DATABASE_URL", "sqlite://")
+os.environ.setdefault("INVOICE_STORAGE_ROOT", "/tmp/wms-invoice-test-documents")
+os.environ.setdefault("DATABASE_URL", "sqlite://")
+
 import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine
