@@ -36,7 +36,7 @@ The activity model follows the four common software-process activities in `4 - S
 | Activity | Inputs | Outputs/products | Responsible role | Preconditions | Completion evidence | Current classification |
 |---|---|---|---|---|---|---|
 | Specification | Stakeholder need, feedback, approved change request | Requirements, acceptance conditions, scope boundaries, traceability | Student developer; reviewer approves | Problem and scope recorded | Reviewed requirements and links to source evidence | `APPROVED — Stage 3 requirements baseline`; version-controlled by the Stage 3 documentation commit |
-| Design and implementation | Approved requirements and architecture decisions | Domain model, persistence, resolver, execution modes, UI, deployment increment | Student developer | Relevant checkpoint approved | Reviewable diff, matching UML, deterministic verification | Checkpoint 4 passed substantive review and the architecture/ADR/UML baseline is approved; Git durability requires a separately authorized and verified version-control action; checkpoint 5 and implementation are `NOT STARTED` |
+| Design and implementation | Approved requirements and architecture decisions | Domain model, persistence, resolver, execution modes, UI, deployment increment | Student developer | Relevant checkpoint approved | Reviewable diff, matching UML, deterministic verification | Checkpoint 4 passed substantive review and the architecture/ADR/UML baseline is approved; Git durability of the accepted architecture baseline is established by commit f44f0d55349af4e7b1b19b49f5e3b26c67c96181 and the independently verified origin/refactor/defense-core ref; checkpoint 5 and implementation are `NOT STARTED` |
 | Verification and validation | Implemented increment and acceptance conditions | Test results, trace, review findings, release recommendation | Student developer; reviewer decides gate | Clean isolated environment and known baseline | Reproducible results and unchanged repository/runtime evidence | `PLANNED`; archive attempt is `INCONCLUSIVE` |
 | Evolution | Change proposal, preserved baseline, impact analysis, risk register | Controlled increments and updated traceability | Student developer; reviewer controls gates | Baseline and historical prototype preserved | Approved change artifacts and checkpoint evidence | `VERIFIED` through the reviewed and approved Stage 2 impact analysis |
 
@@ -57,7 +57,7 @@ The controlled workflow is:
 9. Release decision.
 10. Documentation and traceability update.
 
-Stage 2 created and committed [CR-001](../evolution/CR-001-defense-core-refactoring.md) and its approved impact analysis. Stage 3 establishes Requirements v2 as the approved requirements baseline at step 5 through the Stage 3 documentation commit. Checkpoint 4 passed substantive review and the architecture/ADR/UML baseline is approved; Git durability requires a separately authorized and verified version-control action. Checkpoint 5, implementation, executable testing, deployment, and release work remain not started.
+Stage 2 created and committed [CR-001](../evolution/CR-001-defense-core-refactoring.md) and its approved impact analysis. Stage 3 establishes Requirements v2 as the approved requirements baseline at step 5 through the Stage 3 documentation commit. Checkpoint 4 passed substantive review and the architecture/ADR/UML baseline is approved; Git durability of the accepted architecture baseline is established by commit f44f0d55349af4e7b1b19b49f5e3b26c67c96181 and the independently verified origin/refactor/defense-core ref. Checkpoint 5, implementation, executable testing, deployment, and release work remain not started.
 
 The workflow is consistent with `11 - sw evolmaintenance.pdf`, slides 8-12: change proposals drive evolution, affected components support cost and impact estimation, and implementation follows requirements analysis and updating. Slides 17 and 24 frame useful-system change and functional enhancement; slides 33-34 and 55 support maintainability evidence, re-documentation, and continuous refactoring.
 
@@ -79,14 +79,14 @@ Only one checkpoint may advance at a time:
 1. Version preservation - complete and durably verified.
 2. Process documentation and change request - substantively reviewed and approved; durability established by the Stage 2 documentation commit.
 3. Requirements v2 - complete; substantively reviewed, approved, and committed by the Stage 3 documentation commit.
-4. Architecture, ADR, and UML baseline - substantively reviewed and `APPROVED — checkpoint 4 architecture baseline`; Git durability requires a separately authorized and verified version-control action.
+4. Architecture, ADR, and UML baseline - substantively reviewed and `APPROVED — checkpoint 4 architecture baseline`; Git durability of the accepted architecture baseline is established by commit f44f0d55349af4e7b1b19b49f5e3b26c67c96181 and the independently verified origin/refactor/defense-core ref.
 5. Backend domain model - not started.
 6. Six execution tests - not started.
 7. UI - not started.
 8. Deployment - not started.
 9. Final report - not started.
 
-Checkpoint-4 architecture/ADR/UML passed substantive review and is the approved design baseline. Git durability requires a separately authorized and verified version-control action; checkpoint 5 and implementation remain `NOT STARTED`.
+Checkpoint-4 architecture/ADR/UML passed substantive review and is the approved design baseline. Git durability of the accepted architecture baseline is established by commit f44f0d55349af4e7b1b19b49f5e3b26c67c96181 and the independently verified origin/refactor/defense-core ref; checkpoint 5 and implementation remain `NOT STARTED`.
 
 A later stage may begin only after the previous checkpoint is reviewed. The applicable quality criteria are defined in the [Definition of Done](./definition-of-done.md), and current threats are tracked in the [risk register](./risk-register.md).
 

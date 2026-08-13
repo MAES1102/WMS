@@ -54,6 +54,6 @@ This is a normative quality gate. It does not claim that future work is complete
 - The final report accurately reflects verified evidence and limitations.
 - Git refs, status, release decision, commit, and push are explicitly approved and recorded.
 
-Stages 2 and 3 passed substantive documentation review, and their durability is established by their respective documentation commits; implementation, checkpoint 4+, and final-project criteria remain incomplete.
+Stages 2, 3, and 4 passed substantive documentation review, and their durability is established by their respective documentation commits; implementation, checkpoint 5+, and final-project criteria remain incomplete.
 
 Related records: [development process](./development-process.md), [evidence register](./evidence-register.md), [risk register](./risk-register.md), and [CR-001](../evolution/CR-001-defense-core-refactoring.md).

@@ -9,7 +9,7 @@
 | Executable verification | `NOT STARTED` |
 | Release | `NOT SCHEDULED` |
 
-This document maps the approved Stage 3 requirements to accepted checkpoint-4 architecture evidence. `D4` means **approved checkpoint-4 design evidence only; it is not implementation or runtime verification, and Git durability requires a separately authorized and verified commit/ref action**. `T6`, `U7`, and `D8` remain future evidence checkpoints and no test or scenario is described as executed or passed.
+This document maps the approved Stage 3 requirements to accepted checkpoint-4 architecture evidence. `D4` means **approved checkpoint-4 design evidence only; it is not implementation or runtime verification; Git durability is established by commit f44f0d55349af4e7b1b19b49f5e3b26c67c96181 and the independently verified origin/refactor/defense-core ref**. `T6`, `U7`, and `D8` remain future evidence checkpoints and no test or scenario is described as executed or passed.
 
 ## 1. Forward architecture coverage
 

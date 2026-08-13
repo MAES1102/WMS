@@ -192,7 +192,7 @@ UML separates structural, behavioral, and interaction concerns (`7 - modeling.pd
 
 ## 13. Limitations and deferred details
 
-- Checkpoint-4 substantive review passed and the architecture decisions are accepted; Git durability requires a separately authorized and verified commit/ref action.
+- Checkpoint-4 substantive review passed and the architecture decisions are accepted; Git durability is established by commit f44f0d55349af4e7b1b19b49f5e3b26c67c96181 and the independently verified origin/refactor/defense-core ref.
 - Concrete Python modules, classes, function signatures, endpoint paths, tables, columns, indexes, migration steps, and concurrency primitives are deferred to checkpoint 5 or later authorized work.
 - No latency, throughput, availability, security, or hardware threshold is invented.
 - PlantUML rendering is not runtime or implementation evidence.

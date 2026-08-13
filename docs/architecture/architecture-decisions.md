@@ -9,7 +9,7 @@
 | Executable verification | `NOT STARTED` |
 | Release | `NOT SCHEDULED` |
 
-These seven decisions are accepted as the checkpoint-4 architecture baseline through substantive project review. They are not implemented, runtime-verified, or instructor-approved, and Git durability requires a separately authorized and verified commit/ref action. Architectural decisions affect non-functional characteristics and should explicitly address structure, distribution, decomposition, control, evaluation, and documentation (`9 - sw architecture.pdf`, slides 25–26).
+These seven decisions are accepted as the checkpoint-4 architecture baseline through substantive project review. They are not implemented, runtime-verified, or instructor-approved; Git durability is established by commit f44f0d55349af4e7b1b19b49f5e3b26c67c96181 and the independently verified origin/refactor/defense-core ref. Architectural decisions affect non-functional characteristics and should explicitly address structure, distribution, decomposition, control, evaluation, and documentation (`9 - sw architecture.pdf`, slides 25–26).
 
 ## ADR-001 — Single-deployable modular-monolith structure and layer boundaries
 
