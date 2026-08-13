@@ -1,0 +1,10 @@
+.git
+.pytest_cache
+__pycache__
+*.py[cod]
+*.db
+invoice_documents
+docs
+tests
+build_pdf.py
+package*.json
