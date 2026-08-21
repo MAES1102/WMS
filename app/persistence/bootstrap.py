@@ -1,11 +1,11 @@
-"""Fresh-schema bootstrap for the isolated invoice runtime."""
+"""Schema bootstrap and reference-workflow initialization."""
 
 from datetime import UTC, datetime
 
 from sqlalchemy import Engine, select
 from sqlalchemy.orm import Session
 
-from app.db import Base
+from app.persistence.database import Base
 from app.persistence import models  # noqa: F401
 from app.persistence.models import (
     DraftTask,
@@ -17,7 +17,7 @@ from app.persistence.models import (
 )
 
 
-V3_TABLES = tuple(
+INVOICE_TABLES = tuple(
     table
     for table in Base.metadata.sorted_tables
     if table.name.startswith("invoice_") or table.name == "invoices"
@@ -25,8 +25,8 @@ V3_TABLES = tuple(
 
 
 def create_invoice_schema(engine: Engine) -> None:
-    """Create only the isolated v3 tables; never alter legacy tables."""
-    Base.metadata.create_all(engine, tables=V3_TABLES)
+    """Create the invoice application schema."""
+    Base.metadata.create_all(engine, tables=INVOICE_TABLES)
 
 
 def ensure_reference_workflow(session: Session) -> int:

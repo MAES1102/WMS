@@ -13,7 +13,7 @@ from app.application.orchestration import InvoiceRunNotFound, InvoiceRunQuerySer
 def create_runtime_router(
     run_query_dependency: Callable[..., InvoiceRunQueryService],
 ) -> APIRouter:
-    router = APIRouter(prefix="/api/v3", tags=["invoice-v3"])
+    router = APIRouter(prefix="/api/v3", tags=["runs"])
 
     @router.get("/runs/{run_id}")
     def get_run(

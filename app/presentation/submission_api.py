@@ -23,7 +23,7 @@ from app.application.submission import (
     SubmissionUnavailable,
 )
 from app.domain.invoice import RawInvoiceMetadata
-from app.domain.types import ExecutionMode
+from app.domain.types import DemoScenario, ExecutionMode
 
 
 _MAX_MULTIPART_BYTES = MAX_PDF_BYTES + 65_536
@@ -34,7 +34,9 @@ _TEXT_FIELDS = (
     "amount",
     "currency",
     "mode",
+    "scenario",
 )
+_REQUIRED_TEXT_FIELDS = _TEXT_FIELDS[:-1]
 
 
 class MultipartSubmissionError(ValueError):
@@ -132,7 +134,7 @@ async def parse_invoice_submission(request: Request) -> InvoiceSubmission:
                 f"Multipart field {name!r} must be UTF-8 text",
             ) from exc
 
-    missing = [name for name in _TEXT_FIELDS if name not in values]
+    missing = [name for name in _REQUIRED_TEXT_FIELDS if name not in values]
     if missing or document is None:
         required = missing + (["document"] if document is None else [])
         raise MultipartSubmissionError(
@@ -157,6 +159,7 @@ async def parse_invoice_submission(request: Request) -> InvoiceSubmission:
         declared_media_type=document_media_type,
         document=BytesIO(document),
         mode=ExecutionMode(values["mode"]),
+        scenario=DemoScenario(values.get("scenario", DemoScenario.STANDARD.value)),
     )
 
 
@@ -165,7 +168,7 @@ def create_submission_router(
     coordinator_dependency: Callable[..., InvoiceExecutionCoordinator] | None = None,
     run_query_dependency: Callable[..., InvoiceRunQueryService] | None = None,
 ) -> APIRouter:
-    router = APIRouter(prefix="/api/v3", tags=["invoice-v3"])
+    router = APIRouter(prefix="/api/v3", tags=["invoices"])
     coordinator_provider = coordinator_dependency or (lambda: None)
     query_provider = run_query_dependency or (lambda: None)
 

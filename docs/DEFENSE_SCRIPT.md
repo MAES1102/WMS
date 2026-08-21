@@ -25,10 +25,10 @@ Key sentence: “The green steps support the result; they are not the result.”
 
 ### 3. Failure with business meaning — 60 seconds
 
-Use either the invalid-input case or the permanent archive-failure fixture.
+Use the visible **Demonstration scenario** selector.
 
-- Invalid input: show `VALIDATION_FAILED` and that no approval work item exists.
-- Permanent archive failure: approve first, then show two bounded archive attempts, `NEEDS_MANUAL_ACTION`, and the final notification.
+- Select **Archive fails once, then succeeds**, approve, and show two archive attempts, one retry observation, then `ARCHIVED`.
+- If time permits, select **Archive remains unavailable**, approve, and show `NEEDS_MANUAL_ACTION` after the bound is exhausted.
 
 Key sentence: “A technical retry repeats the same task and selects no graph edge. Only after the bound is exhausted does normal failure routing continue.”
 
@@ -44,11 +44,11 @@ Show the shared activity diagram and the two sequence diagrams. Then state:
 
 - five scenarios × two modes;
 - five normalized mode comparisons;
-- 220 passing repository tests;
+- 205 passing repository tests after final product consolidation;
 - both modes resume a waiting invoice after real Uvicorn process recreation;
 - one application service and no Kafka/ZooKeeper.
 
-Finish with the limitation: the container image was not built in the recorded environment because no container engine was available.
+Finish with the limitation: the product is a bounded academic application, not an authenticated production accounting or payment system.
 
 ## Likely questions
 
@@ -76,9 +76,13 @@ No. It is an optional advanced form for four built-in task types and three trans
 
 Workflow revisions, invoice/run state, cursor, attempts, work item, decision, notification, ordered trace, and stored document. EventBus subscriptions do not survive and do not need to.
 
+### Why is the failure selectable?
+
+The selector is a deterministic demonstration adapter for archive availability. It is persisted with the run, produces repeatable evidence, and never decides whether the invoice is approved. The actual business decision still comes from the approver; the adapter only demonstrates bounded technical failure handling.
+
 ### What would you do next?
 
-Build the container, repeat the persistent-volume restart with Docker, perform external usability/accessibility testing, and close the controlled Git review/release checkpoint. I would not add another large feature before those steps.
+Repeat container startup on the defense machine, perform external usability/accessibility testing, and add authentication if the application were moved beyond the academic boundary. I would not add another large feature before those steps.
 
 ## Closing sentence
 

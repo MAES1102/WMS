@@ -1,10 +1,11 @@
 .git
-.pytest_cache
+.venv
+venv
 __pycache__
 *.py[cod]
+.pytest_cache
 *.db
 invoice_documents
 docs
+output
 tests
-build_pdf.py
-package*.json

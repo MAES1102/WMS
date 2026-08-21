@@ -1,43 +1,29 @@
-"""Shared pytest fixtures for the Workflow Management System test suite."""
+"""Shared fixtures for integrated invoice-application tests."""
 import os
+from pathlib import Path
+import shutil
 
 os.environ.setdefault("INVOICE_DATABASE_URL", "sqlite://")
 os.environ.setdefault("INVOICE_STORAGE_ROOT", "/tmp/wms-invoice-test-documents")
-os.environ.setdefault("DATABASE_URL", "sqlite://")
 
 import pytest
 from fastapi.testclient import TestClient
-from sqlalchemy import create_engine
-from sqlalchemy.orm import sessionmaker
-from sqlalchemy.pool import StaticPool
-
-from app.db import Base
 from app.main import app
-from app.routes import get_db
+from app.persistence.bootstrap import INVOICE_TABLES
+from app.persistence.database import Base
+from app.runtime import invoice_engine
 
-# In-memory SQLite — StaticPool ensures every connection shares the same DB.
-_ENGINE = create_engine(
-    "sqlite://",
-    connect_args={"check_same_thread": False},
-    poolclass=StaticPool,
-)
-_TestingSession = sessionmaker(autocommit=False, autoflush=False, bind=_ENGINE)
+
+_STORAGE_ROOT = Path(os.environ["INVOICE_STORAGE_ROOT"])
 
 
 @pytest.fixture()
 def client():
     """Yield a TestClient backed by a fresh in-memory SQLite database."""
-    Base.metadata.create_all(bind=_ENGINE)
-
-    def _override_get_db():
-        db = _TestingSession()
-        try:
-            yield db
-        finally:
-            db.close()
-
-    app.dependency_overrides[get_db] = _override_get_db
+    Base.metadata.drop_all(bind=invoice_engine, tables=INVOICE_TABLES)
+    shutil.rmtree(_STORAGE_ROOT, ignore_errors=True)
+    _STORAGE_ROOT.mkdir(parents=True)
     with TestClient(app) as c:
         yield c
-    app.dependency_overrides.clear()
-    Base.metadata.drop_all(bind=_ENGINE)
+    Base.metadata.drop_all(bind=invoice_engine, tables=INVOICE_TABLES)
+    shutil.rmtree(_STORAGE_ROOT, ignore_errors=True)

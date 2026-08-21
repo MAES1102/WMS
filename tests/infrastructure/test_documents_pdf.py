@@ -61,7 +61,7 @@ def test_storage_identity_cannot_escape_root(tmp_path) -> None:
     storage = LocalDocumentStorage(tmp_path)
 
     with pytest.raises(DocumentBoundaryError, match="identity"):
-        storage.open("../../workflow.db")
+        storage.open("../../outside.db")
 
 
 def test_pypdf_inspector_accepts_readable_nonempty_pdf(tmp_path) -> None:

@@ -1,61 +1,31 @@
 # Product Backlog
 
-## Evidence policy
+## Delivered product backlog
 
-Backlog entries use evolution identifiers, not final requirement identifiers. No effort values or story points are assigned. Historical output is separated from current evolution work and excluded scope. Classifications follow the [development process](./development-process.md).
+| ID | User or product outcome | Priority | Status | Evidence |
+|---|---|---:|---|---|
+| PB-01 | Define and validate an acyclic conditional workflow | Must | Done | Domain validator tests |
+| PB-02 | Execute the same workflow by orchestration and choreography | Must | Done | Paired-mode scenario tests |
+| PB-03 | Persist run cursor, attempts, trace, and terminal state | Must | Done | Persistence and restart tests |
+| PB-04 | Submit invoice metadata and a bounded readable PDF | Must | Done | Submission/PDF/API tests |
+| PB-05 | Pause for one persistent human approve/reject decision | Must | Done | Approval, idempotency, resume tests |
+| PB-06 | Archive approved invoices and notify final outcome | Must | Done | Five business scenarios |
+| PB-07 | Retry transient archive failure and handle exhaustion | Must | Done | Deterministic retry/manual-action scenarios |
+| PB-08 | Show invoice state, next action, result, mode, and trace | Must | Done | Integrated runtime and UI tests |
+| PB-09 | Configure bounded drafts and activate immutable revisions | Should | Done | Constructor service/API/UI tests |
+| PB-10 | Survive process restart while waiting for approval | Should | Done | File-backed and process restart tests |
+| PB-11 | Provide one-service local/container deployment | Should | Done | Docker inventory and launcher tests |
+| PB-12 | Deliver synchronized requirements, UML, report, and defense script | Must | Done | Artifact and PDF review |
 
-## Evidenced historical work
+## Intentionally excluded
 
-| ID | Historical objective/output | Evidence | Classification | Limitation |
-|---|---|---|---|---|
-| PBI-H01 | Create a FastAPI/SQLite workflow CRUD foundation | Baseline source at `v1-linear-baseline` | `VERIFIED` | Commit history does not isolate a sprint increment |
-| PBI-H02 | Execute ordered tasks through centralized orchestration | Baseline engine source and tests | `VERIFIED` as implementation presence | Historical passing result is `UNVERIFIED` in this checkpoint |
-| PBI-H03 | Execute ordered tasks through in-memory EventBus choreography | Baseline engine and EventBus source | `VERIFIED` as implementation presence | Kafka behavior and prior pass claims require revalidation |
-| PBI-H04 | Provide dashboard, run history, logging, and documentation | Baseline UI, routes, models, README, and report | `VERIFIED` as artifact presence | Completeness and report accuracy are not implied |
-| PBI-H05 | Explore transitions, branching, loops, and per-run task state | `archive/advanced-prototype` | `VERIFIED` as preserved prototype content | Verification is `INCONCLUSIVE`; architecture is not accepted wholesale |
-
-## Current evolution backlog
-
-| ID | Objective | Rationale | Priority | Status | Source/evidence | Acceptance condition | Dependency | Target checkpoint |
-|---|---|---|---|---|---|---|---|---|
-| PBI-E01 | Establish durable process and evidence records | Make work visible without fabricating history | Highest | Accepted | Stage 2 authorization and Stage 1 refs | Eight authorized documents pass validation and review | Stage 1 preservation | 2 |
-| PBI-E02 | Review CR-001 scope and impact | Prevent uncontrolled transfer of prototype debt | Highest | Approved | [CR-001](../evolution/CR-001-defense-core-refactoring.md) | Reviewer accepts problem, scope, risks, alternatives, and impact analysis | PBI-E01 | 2 |
-| PBI-E03 | Produce Requirements v2 | Define observable behavior and quality constraints before design | Highest | Approved and committed — checkpoint 3 complete | CR-001 requested outcome | Requirements are approved, testable, traced, and contain no excluded scope | Committed Stage 2 record and approved PBI-E02 | 3 |
-| PBI-E04 | Draft architecture decisions and matching UML | Make design reviewable before implementation | High | Approved — checkpoint 4 substantive review complete | Course process guidance and CR-001 | ADR/UML set represents the approved model and execution semantics | PBI-E03 | 4 |
-| PBI-E05 | Introduce run-specific domain and persistence concepts | Prevent runtime state from leaking through workflow definitions | High | Foundation published; acceptance and executable verification incomplete | [EV-027](./evidence-register.md) and CR-001 | Reviewed model separates definition, run, task execution, retry, and trace state | PBI-E04 | 5 / CR-002 compatibility review |
-| PBI-E06 | Implement conditional DAG transition resolution | Provide deterministic routing without arbitrary cycles | High | Foundation published; acceptance and executable verification incomplete | [EV-027](./evidence-register.md) and CR-001 | Shared resolver selects `SUCCESS`, `FAILURE`, or `ALWAYS` deterministically on an acyclic graph | PBI-E05 | 5 / CR-002 compatibility review |
-| PBI-E07 | Implement centralized orchestration on the shared model | Preserve explicit central control with common semantics | High | Superseded for planning by PBI-E20 after CR-002 | CR-001 | Historical target retained inside the invoice-specific orchestration increment | PBI-E06 | Replanned |
-| PBI-E08 | Implement in-memory EventBus choreography on the shared model | Demonstrate reactive control without broker infrastructure | High | Superseded for planning by PBI-E21 after CR-002 | CR-001 | Historical target retained inside the invoice-specific choreography increment | PBI-E06 | Replanned |
-| PBI-E09 | Implement bounded retry and deterministic scenarios | Remove random outcomes and graph-cycle retries | High | Superseded for planning by PBI-E17 and PBI-E23 after CR-002 | CR-001 | Retry remains shared; deterministic adapters become secondary verification inputs | PBI-E05-PBI-E08 | Replanned |
-| PBI-E10 | Add six focused execution tests | Verify both modes and deterministic scenarios before UI work | Highest | Superseded by the ten-execution/five-pair matrix in PBI-E23 | Review-gate plan | Historical six-case target is replaced with the Requirements v3 scenario matrix after approval | PBI-E07-PBI-E09 | Replanned |
-| PBI-E11 | Provide one clear UI demonstration path | Make the approved behavior observable without feature sprawl | Medium | Superseded for planning by PBI-E24 after CR-002 | CR-001 | User-outcome-first invoice UI retains the original bounded-demonstration intent | PBI-E10 | Replanned |
-| PBI-E12 | Simplify deployment to one FastAPI service with persistent storage | Remove broker dependencies and ensure retained data | High | Superseded for planning by PBI-E25 after CR-002 | CR-001 exclusions | Single-service persistence target is retained and extended to waiting work and documents | PBI-E10 | Replanned |
-| PBI-E13 | Reconcile final report, UML, traceability, and evidence | Prevent code/report drift at release decision | High | Superseded for planning by PBI-E26 after CR-002 | Instructor feedback and DoD | Final reconciliation target is retained with explicit product-reference/reuse disclosure | PBI-E03-PBI-E12 | Replanned |
-| PBI-E14 | Review CR-002 product-purpose correction and impact | Respond to the reported inability to understand the useful function without replacing the approved workflow objective | Highest | Approved at project level on 2026-08-13; no instructor approval claimed | FB-004 and [CR-002](../evolution/CR-002-invoice-approval-reference-application.md) | Reviewer accepts the problem, bounded invoice reference application, alternatives, impacts, risks, reuse boundary, and checkpoint reset | EV-027 | CR-002 review |
-| PBI-E15 | Produce Requirements v3 after CR-002 approval | Define user-visible invoice/approval behavior and human-task lifecycle before affected implementation continues | Highest | Approved at project level on 2026-08-13; no instructor approval claimed | [Requirements v3](../requirements/requirements-v3.md) and [v3 traceability](../requirements/requirements-traceability-v3.md) | Requirements are atomic, testable, traced, preserve or explicitly supersede existing identifiers, and contain no excluded scope | PBI-E14 approved | Requirements v3 |
-| PBI-E16 | Correct affected architecture and UML after Requirements v3 approval | Preserve valid C5A concepts while designing executor, waiting/resume, business-state, and event-lifecycle changes | Highest | Approved at project level on 2026-08-13; Git durability pending | [Architecture v3](../architecture/architecture-overview-v3.md), [ADRs v3](../architecture/architecture-decisions-v3.md), and eight reviewed UML sources | Nine accepted ADRs and eight syntax/render/visual-reviewed UML views identify retained and changed decisions without claiming implementation | PBI-E15 approved | Architecture correction |
-| PBI-E17 | Review C5A compatibility and define the shared executor/business-state foundation | Reuse the clean domain core without forcing invoice or waiting state into incompatible prototype paths | Highest | Completed and accepted at project level; Git durability pending | [Checkpoint 5A v3 plan](../implementation/checkpoint-5a-v3-implementation-plan.md), EV-031–EV-034 | Domain, isolated persistence, and shared one-step application suites pass without touching prototype runtime or developer data | PBI-E16 approved | Revised checkpoint 5A |
-| PBI-E18 | Implement bounded invoice submission and validation | Make the workflow perform visible useful work on a controlled business object | Highest | Completed and accepted at project level; registered through the later isolated runtime preview | `FR-031`–`FR-035`, section 6, `NFR-009`, EV-035–EV-038, EV-041 | Bounded adapters, atomic submission/validation persistence, and the integrated HTTP path pass without developer-data writes | PBI-E17 | Revised checkpoint 5B |
-| PBI-E19 | Implement persistent human approval and idempotent continuation | Support a real pause, one decision, and exact same-run resume | Highest | Completed and accepted at project level; control-strategy driving remains E20/E21 | `FR-036`–`FR-042`, RK-017, EV-039 | Waiting work survives a new session, accepts one authoritative decision, and resumes exactly one isolated cursor | PBI-E17, PBI-E18 | Revised checkpoint 5C |
-| PBI-E20 | Implement invoice orchestration on shared services | Demonstrate centralized control over the business workflow | High | Completed and accepted at project level; registered through the isolated runtime preview | `FR-015`, `FR-043`–`FR-047`, EV-040, EV-041 | Orchestration passes the five specified business scenarios using shared resolver/retry/state services | PBI-E18, PBI-E19 | Revised checkpoint 5D |
-| PBI-E21 | Implement invoice choreography on a run-scoped EventBus | Demonstrate reactive control without duplicating business semantics | High | Completed and accepted at project level; Git durability pending | `FR-016`, `FR-017`, CON-003, EV-042 | Choreography passes the same five scenarios with normalized parity and subscriber cleanup | PBI-E20 | Revised checkpoint 5E |
-| PBI-E22 | Implement the bounded workflow constructor and immutable revisions | Provide useful configuration without becoming a general low-code platform | High | Completed and accepted at project level; Git durability pending | `FR-048`–`FR-052`, CON-011, CON-012, EV-043 | Supported invoice workflows can be configured, validated, visualized, activated, and revised without user code | PBI-E17, PBI-E21 | Revised checkpoint 5F |
-| PBI-E23 | Execute the ten-case acceptance and quality matrix | Produce reproducible evidence for five scenarios in both modes | Highest | Completed and accepted at project application level; deployed-process evidence remains E25 | Requirements v3 section 9, `NFR-001`–`NFR-005`, `NFR-007`–`NFR-010`, EV-044 | Functional, parity, repeatability, retry, waiting, isolation, persistence-boundary restart, PDF, trace, dependency, and timing checks have exact results | PBI-E18–PBI-E22 | Revised checkpoint 6 |
-| PBI-E24 | Implement the user-outcome-first browser demonstration | Make the useful invoice result understandable before exposing architecture details | High | Completed and accepted for the reference Chromium desktop/mobile boundary; broader browser/human testing not claimed | `FR-053`, `NFR-011`, RK-015, EV-041, EV-045 | The final UI connects submission, approval, status, configuration, mode, and trace and visibly satisfies `NFR-011` | PBI-E23 | Revised checkpoint 7 |
-| PBI-E25 | Verify persistent single-service deployment | Demonstrate restart retention without distributed infrastructure | High | Completed and accepted for deployment inventory and OS-process restart; container image build unavailable and not claimed | `NFR-003`, `NFR-006`, CON-001–CON-003, EV-046 | The recorded deployment inventory and controlled process restart satisfy all retained-state requirements | PBI-E23, PBI-E24 | Revised checkpoint 8 |
-| PBI-E26 | Reconcile final report, UML, reuse disclosure, and defense script | Ensure the report shows product value and accurately separates custom work from references/reuse | Highest | Completed and accepted at project level; Git durability and instructor approval not claimed | Instructor feedback, CR-002, DoD, RK-021, EV-047 | Final report/PDF, eight reviewed vector UML views, reuse disclosure, defense script, claim ledger, and limitations match verified behavior | PBI-E24, PBI-E25 | Revised checkpoint 9 |
-
-## Excluded scope
-
-| Excluded item | Reason |
+| Candidate | Decision |
 |---|---|
-| Kafka, ZooKeeper, and distributed brokers | Broker runtime behavior is `UNVERIFIED`, and broker infrastructure is unnecessary for the approved bounded target |
-| Microservice claims and distributed execution | The target is a single FastAPI application |
-| Arbitrary graph cycles | Retry state must be bounded and explicit rather than encoded as cycles |
-| Parallel fork/join | Outside the approved defense-core conditional-DAG scope |
-| Random execution outcomes | Conflicts with deterministic verification and demonstration |
-| External business services | Adds integration risk without supporting the core objective |
-| Mutable runtime state on workflow-definition tasks | Violates run isolation |
-| Unrelated feature expansion | Controlled scope is required for checkpoint review |
-
-See the [risk register](./risk-register.md), [sprint record](./sprint-record.md), and [CR-001](../evolution/CR-001-defense-core-refactoring.md).
+| Payment or banking execution | Excluded: the product approves invoices; it does not move money. |
+| OCR, AI extraction, fraud detection | Excluded: unnecessary for the bounded course objective. |
+| Authentication and organizational authorization | Future work: logical roles are sufficient for the demonstration. |
+| Kafka, microservices, durable distributed messaging | Excluded: one process is the accepted deployment boundary. |
+| Full BPMN/drag-and-drop low-code platform | Excluded: constructor is deliberately closed and form-based. |
+| Arbitrary scripts, plugins, or user executors | Excluded for safety and scope control. |
+| Fork/join and cyclic workflows | Future research; current engine is a conditional DAG. |
+| External email/accounting systems | Future adapters; internal notification is the accepted outcome. |

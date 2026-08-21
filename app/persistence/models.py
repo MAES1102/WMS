@@ -1,4 +1,4 @@
-"""Isolated v3 persistence model; the prototype runtime does not write it."""
+"""Persistence model for workflow definitions, invoice runs, and audit data."""
 
 from datetime import date, datetime
 from decimal import Decimal
@@ -18,7 +18,7 @@ from sqlalchemy import (
 )
 from sqlalchemy.orm import Mapped, mapped_column
 
-from app.db import Base
+from app.persistence.database import Base
 
 
 TASK_TYPES = (
@@ -239,6 +239,10 @@ class InvoiceWorkflowRun(Base):
             name="ck_invoice_run_mode",
         ),
         CheckConstraint(
+            "scenario IN ('standard','retry_then_success','archive_unavailable')",
+            name="ck_invoice_run_scenario",
+        ),
+        CheckConstraint(
             "status IN ('RUNNING','WAITING_FOR_APPROVAL','COMPLETED','FAILED')",
             name="ck_invoice_run_status",
         ),
@@ -258,6 +262,7 @@ class InvoiceWorkflowRun(Base):
         ForeignKey("invoice_workflow_revisions.id"), nullable=False
     )
     mode: Mapped[str] = mapped_column(String(16), nullable=False)
+    scenario: Mapped[str] = mapped_column(String(32), nullable=False)
     status: Mapped[str] = mapped_column(String(32), nullable=False)
     started_at: Mapped[datetime] = mapped_column(DateTime, nullable=False)
     finished_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)

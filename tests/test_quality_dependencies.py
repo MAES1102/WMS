@@ -2,7 +2,7 @@ from pathlib import Path
 
 
 ROOT = Path(__file__).resolve().parents[1]
-V3_SOURCE = (
+APPLICATION_SOURCE = (
     ROOT / "app" / "domain",
     ROOT / "app" / "application",
     ROOT / "app" / "infrastructure",
@@ -20,13 +20,13 @@ def test_runtime_dependencies_require_no_broker_or_external_business_system() ->
     assert "ocr" not in requirements
 
 
-def test_v3_execution_source_has_no_random_or_prohibited_integration_imports() -> None:
+def test_execution_source_has_no_random_or_prohibited_integration_imports() -> None:
     source = "\n".join(
         path.read_text(encoding="utf-8")
-        for folder in V3_SOURCE
+        for folder in APPLICATION_SOURCE
         for path in folder.rglob("*.py")
     ).lower()
-    source += (ROOT / "app" / "v3_runtime.py").read_text(encoding="utf-8").lower()
+    source += (ROOT / "app" / "runtime.py").read_text(encoding="utf-8").lower()
 
     prohibited = (
         "import random",

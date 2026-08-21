@@ -27,7 +27,7 @@ Camunda, n8n, and Temporal were reviewed as examples of established workflow pro
 - a workflow definition can be configured and versioned;
 - execution history should be inspectable independently of the current UI request.
 
-No engine, source file, workflow definition, diagram, UI implementation, or branded asset from these products is included. The project’s bounded DAG validator, resolver, retry policy, run-scoped EventBus strategy, persistence model, invoice services, constructor, tests, and UI were implemented for Requirements v3 in this repository.
+No engine, source file, workflow definition, diagram, UI implementation, or branded asset from these products is included. The project’s bounded DAG validator, resolver, retry policy, run-scoped EventBus strategy, persistence model, invoice services, constructor, tests, and UI were implemented for the current requirements in this repository.
 
 ## Course and literature sources
 

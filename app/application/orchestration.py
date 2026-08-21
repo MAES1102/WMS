@@ -12,7 +12,7 @@ from app.application.approval import (
 from app.application.errors import StepStateError
 from app.application.step_service import AutomaticStepService
 from app.domain.approval import ApprovalDecisionInput
-from app.domain.types import ExecutionMode, TaskType, TerminalDecision
+from app.domain.types import DemoScenario, ExecutionMode, TaskType, TerminalDecision
 
 if TYPE_CHECKING:
     from app.application.choreography import ChoreographyResult, InvoiceChoreographer
@@ -221,6 +221,7 @@ class InvoiceRunStatusView:
     invoice_number: str
     run_id: str
     execution_mode: ExecutionMode
+    scenario: DemoScenario
     invoice_state: str
     run_status: str
     cursor_phase: CursorPhase

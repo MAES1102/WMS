@@ -265,7 +265,7 @@
         <h1>Invoice Approval Desk</h1>
         <p>Submit an invoice, validate it, collect a human decision, archive the approved document, and keep a complete audit history.</p>
       </div>
-      <div><a href="/docs" target="_blank">API</a> · <a href="/legacy-ui">Legacy demo</a></div>
+      <div><a href="/docs" target="_blank">API documentation</a></div>
     </div>
   </header>
 
@@ -304,6 +304,14 @@
           </select>
 
           <div id="mode-note" class="mode-note"><strong>Orchestration:</strong> one central controller advances the same persisted workflow and stops safely for human review.</div>
+
+          <label for="scenario">Demonstration scenario</label>
+          <select id="scenario" name="scenario">
+            <option value="standard">Standard processing</option>
+            <option value="retry_then_success">Archive fails once, then succeeds</option>
+            <option value="archive_unavailable">Archive remains unavailable</option>
+          </select>
+          <div id="scenario-note" class="mode-note"><strong>Standard:</strong> automatic steps use their normal deterministic business behavior.</div>
           <button id="submit-button" type="submit">Start invoice process</button>
           <div id="form-error" class="error hidden" role="alert"></div>
         </form>
@@ -341,6 +349,7 @@
           <div class="wide"><dt>Required next action</dt><dd id="status-next-action">—</dd></div>
           <div><dt>Final result</dt><dd id="status-final-result">Not reached</dd></div>
           <div><dt>Execution mode</dt><dd id="status-mode">—</dd></div>
+          <div><dt>Demonstration scenario</dt><dd id="status-scenario">—</dd></div>
         </dl>
 
         <div id="approval-box" class="approval hidden">
@@ -444,9 +453,17 @@
       orchestration: '<strong>Orchestration:</strong> one central controller advances the same persisted workflow and stops safely for human review.',
       choreography: '<strong>Choreography:</strong> temporary run-scoped events trigger the same persisted steps; all subscribers are removed while waiting or after completion.'
     };
+    const scenarioNotes = {
+      standard: '<strong>Standard:</strong> automatic steps use their normal deterministic business behavior.',
+      retry_then_success: '<strong>Retry demonstration:</strong> archiving reports one retryable storage failure and succeeds on the next bounded attempt.',
+      archive_unavailable: '<strong>Manual-action demonstration:</strong> archiving remains unavailable until its attempt bound is exhausted.'
+    };
 
     document.querySelector('#mode').addEventListener('change', (event) => {
       document.querySelector('#mode-note').innerHTML = modeNotes[event.target.value];
+    });
+    document.querySelector('#scenario').addEventListener('change', (event) => {
+      document.querySelector('#scenario-note').innerHTML = scenarioNotes[event.target.value];
     });
 
     document.querySelector('#date').value = new Date().toISOString().slice(0, 10);
@@ -536,6 +553,12 @@
       document.querySelector('#status-supplier').textContent = run.supplier_name;
       document.querySelector('#status-state').textContent = run.invoice_state.replaceAll('_', ' ');
       document.querySelector('#status-mode').textContent = modeLabel;
+      const scenarioLabels = {
+        standard: 'Standard processing',
+        retry_then_success: 'Archive retry, then success',
+        archive_unavailable: 'Archive unavailable; manual action'
+      };
+      document.querySelector('#status-scenario').textContent = scenarioLabels[run.scenario] || run.scenario;
 
       const badge = document.querySelector('#run-badge');
       badge.textContent = run.run_status.replaceAll('_', ' ');
@@ -600,7 +623,7 @@
         tasks: [
           { task_key: 'validate', name: 'Validate invoice', task_type: 'DOCUMENT_VALIDATION', is_start: true, max_attempts: 1 },
           { task_key: 'review', name: 'Review invoice', task_type: 'HUMAN_APPROVAL', is_start: false, max_attempts: null },
-          { task_key: 'archive', name: 'Archive invoice', task_type: 'ARCHIVE_DOCUMENT', is_start: false, max_attempts: 3 },
+          { task_key: 'archive', name: 'Archive invoice', task_type: 'ARCHIVE_DOCUMENT', is_start: false, max_attempts: 2 },
           { task_key: 'notify', name: 'Notify result', task_type: 'CREATE_NOTIFICATION', is_start: false, max_attempts: 1 }
         ],
         transitions: [

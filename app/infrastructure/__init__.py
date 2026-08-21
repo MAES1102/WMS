@@ -1,1 +1,1 @@
-"""Infrastructure adapters for the v3 invoice workflow."""
+"""Infrastructure adapters for the invoice workflow."""

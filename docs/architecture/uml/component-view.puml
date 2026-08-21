@@ -1,61 +1,65 @@
 @startuml
-title Defense Core — Accepted Component View
+title Invoice Workflow — Component View
 skinparam componentStyle rectangle
 skinparam shadowing false
 
-actor "Workflow operator" as Operator
-component "Browser / static UI" as Browser <<presentation>>
+actor "Application users" as Users
+component "Browser UI" as Browser <<presentation>>
 
-node "One FastAPI application process" as App {
-  component "FastAPI boundary" as Boundary <<presentation>>
-  component "Application services" as Services <<application>>
-  component "Definition validator" as Validator <<domain>>
-  component "Shared transition resolver\nand retry / terminal policy" as Resolver <<domain>>
-  component "Centralized\norchestration strategy" as Orchestration <<application>>
+node "One FastAPI application" {
+  component "HTTP boundary" as HTTP <<presentation>>
+  component "Definition / invoice / approval\napplication services" as Services <<application>>
+  component "Execution coordinator" as Coordinator <<application>>
+  component "Orchestration strategy" as Orchestration <<application>>
   component "Choreography strategy" as Choreography <<application>>
-  component "Run-scoped in-memory\nEventBus" as EventBus <<infrastructure>>
-  component "Named deterministic\nscenario provider" as Scenario <<infrastructure>>
-  component "Persistence boundary" as Persistence <<infrastructure>>
+  component "Definition validator" as Validator <<domain>>
+  component "Shared step service\nretry policy + resolver" as Step <<domain>>
+  component "Closed executor registry" as Executors <<application>>
+  component "Run-scoped EventBus" as EventBus <<infrastructure>>
+  component "Repositories / unit of work" as Repositories <<infrastructure>>
+  component "PDF + document adapters" as Documents <<infrastructure>>
+  component "Deterministic archive scenario adapter" as Faults <<application adapter>>
 }
 
-database "Persistent database / storage" as Database
+database "Persistent database" as Database
+folder "Controlled document storage" as Storage
+component "Selected PDF library" as PdfLib <<third-party library>>
 
-Operator --> Browser : define/select, run, inspect
-Browser --> Boundary : client requests
-Boundary --> Services : use-case request
-Services --> Validator : validate before run creation
-Services --> Orchestration : select mode
-Services --> Choreography : select mode
-Orchestration --> Resolver : shared semantics
-Choreography --> Resolver : shared semantics
-Choreography --> EventBus : run-scoped subscribe/publish/cleanup
-Orchestration --> Scenario : deterministic outcomes
-Choreography --> Scenario : deterministic outcomes
-Services --> Persistence : create/retrieve run
-Orchestration --> Persistence : persist before advancement
-Choreography --> Persistence : persist before event advancement
-Persistence --> Database : durable state and ordered trace
+Users --> Browser
+Browser --> HTTP
+HTTP --> Services
+Services --> Validator
+Services --> Coordinator
+Coordinator --> Orchestration
+Coordinator --> Choreography
+Orchestration --> Step
+Choreography --> Step
+Choreography --> EventBus
+Step --> Executors
+Executors --> Documents
+Executors --> Faults
+Services --> Repositories
+Coordinator --> Repositories
+Step --> Repositories
+Repositories --> Database
+Documents --> Storage
+Documents --> PdfLib
 
 note right of EventBus
-One controlled advance handler per run.
-Deterministic ordered dispatch.
-Terminal cleanup / unsubscription.
-No broker fallback.
+Transient trigger only.
+One handler for one active run scope.
+No subscriber while waiting.
 end note
 
-note bottom of Resolver
-SUCCESS / FAILURE precedes ALWAYS.
-Retry repeats the current task without an edge.
-Equal-precedence ambiguity is rejected pre-run.
+note bottom of Step
+Business failure is not retried.
+Only retryable technical failure
+below the bound repeats the task.
 end note
 
 legend
-Status: APPROVED — checkpoint 4 architecture baseline
-Requirements baseline: 6074fd7ef490ea3b08177e7a786035159f39a91c
-Working base: b5c7da9e51382bb418f017790ae944c8dff26a06
-Implementation: NOT STARTED
-Executable verification: NOT STARTED
-Release: NOT SCHEDULED
-Conceptual components only; concrete modules and APIs are deferred.
+Dependencies point toward shared policy.
+No broker, external workflow engine, OCR, or business service.
+Final conceptual components; API paths and class names are omitted for clarity.
 endlegend
 @enduml

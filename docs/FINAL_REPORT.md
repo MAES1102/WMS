@@ -1,14 +1,49 @@
 ---
-title: "Invoice Approval Workflow"
-subtitle: "Design, implementation, and evaluation of orchestration and choreography"
-author: "Yermek Aubayev (551098)"
-date: "13 August 2026"
+title: ""
+author: ""
+date: ""
 lang: en
-toc: true
 toc-depth: 2
 header-includes:
   - \usepackage{pdflscape}
+  - \usepackage{booktabs}
+  - \usepackage{xcolor}
 ---
+
+\begin{titlepage}
+\centering
+{\large UNIVERSITY OF MESSINA\par}
+\vspace{0.4cm}
+{\large Department of Mathematics and Computer Science\par}
+\vspace{0.2cm}
+{\large Master Degree in Data Science\par}
+\vfill
+{\Large\bfseries Software Engineering Project Report\par}
+\vspace{1.0cm}
+{\Huge\bfseries Invoice Approval Workflow\par}
+\vspace{0.5cm}
+{\Large Design, implementation, and evaluation of orchestration and choreography\par}
+\vfill
+\begin{tabular}{ll}
+Student: & Yermek Aubayev \quad Matricola 551098 \\
+Professor: & Prof. Salvatore Distefano \\
+Academic year: & 2025/2026 \\
+Submission date: & 21 August 2026
+\end{tabular}
+\vfill
+{\large Messina, Italy\par}
+\end{titlepage}
+
+\pagenumbering{roman}
+\tableofcontents
+\clearpage
+
+# Abstract
+
+This report presents a bounded Invoice Approval Workflow that turns a technically correct workflow prototype into an understandable business application. A submitter uploads invoice metadata and a PDF; the system validates the submission, waits for a persistent human decision, resumes the same run, archives an approved document or records a controlled negative outcome, creates an internal notification, and exposes an ordered audit trace. The same immutable workflow revision is executed through centralized orchestration and run-scoped in-memory choreography. Both strategies share task executors, retry classification, transition resolution, persistence, and business effects, which makes the comparison meaningful. Five deterministic business scenarios are exercised in both modes: approved, rejected, invalid input, retry followed by success, and retry exhaustion requiring manual action. The final result is one FastAPI application with SQLite and controlled document storage, a bounded workflow constructor, synchronized UML/requirements artifacts, and an automated evidence suite. The application is an academic reference system rather than a production accounting or payment platform.
+
+\clearpage
+\pagenumbering{arabic}
 
 # Executive summary
 
@@ -16,7 +51,7 @@ This project is a small invoice-approval product and, at the same time, a contro
 
 The same invoice workflow can run in two modes. In **orchestration**, one central controller advances the process. In **choreography**, a run-scoped in-memory event handler triggers each next committed step. The two modes deliberately share validation, retry, transition resolution, persistence, and business rules. Their purpose is therefore not to produce different business results, but to expose the control-flow trade-off while holding semantics constant.
 
-The final product is a single FastAPI application backed by SQLite and controlled local document storage. It does not call a payment provider, perform OCR, send external email, or require Kafka. Five reference scenarios run in both modes: approved, rejected, invalid, retry-then-archive, and exhausted archive requiring manual action. The repository test suite reports **220 passing tests**. A real-process restart test demonstrates that a waiting invoice can be approved after the application process is recreated. Browser acceptance was completed in one reference Chromium engine at desktop and mobile widths.
+The final product is a single FastAPI application backed by SQLite and controlled local document storage. It does not call a payment provider, perform OCR, send external email, or require Kafka. Five reference scenarios run in both modes: approved, rejected, invalid, retry-then-archive, and exhausted archive requiring manual action. The repository test suite reports **205 passing tests** after product consolidation. A process-restart test demonstrates that a waiting invoice can be approved after the application process is recreated. Browser structure and connected HTTP behavior are covered by the automated suite; the report also includes the accepted desktop/mobile evidence images.
 
 The main engineering contribution is the combination of: immutable workflow revisions; deterministic DAG routing; classified, bounded retry; persistent human waiting and same-run resume; run isolation; and semantic parity across two execution strategies. This is an academic prototype, not a production accounting system. Its limitations are stated explicitly in Section 12.
 
@@ -64,7 +99,7 @@ The boundary is intentionally narrow. Payment processing, accounting integration
 
 \clearpage
 
-![System context and supported use cases.](architecture/uml-v3/rendered-pdf/system-context-use-cases.pdf){width=90%}
+![System context and supported use cases.](architecture/uml/rendered-pdf/system-context-use-cases.pdf){width=90%}
 
 \clearpage
 
@@ -72,37 +107,43 @@ The boundary is intentionally narrow. Payment processing, accounting integration
 
 ## 2.1 Process used
 
-The final evolution was managed as a sequence of controlled product-backlog increments rather than reconstructed Scrum theatre. Each increment had an entry condition, a bounded change, executable checks where possible, an evidence record, and an explicit limitation. Historical sprint narratives and burndown numbers from the earlier report were retained as history but were not treated as independently verified facts.
+The work used a lightweight iterative process with Scrum-style planning, development, review, and retrospective checkpoints. Because this was a solo academic project, no claim is made that a multi-person Scrum team held formal daily meetings. The useful part of Scrum was retained: short goals, prioritized backlog items, small increments, frequent verification, feedback-driven reprioritization, and a Definition of Done.
 
-The important correction was to move from “implement more workflow features” to “make one useful workflow complete and defensible.” The sequence was:
+The decisive change was moving from “add more workflow features” to “complete one useful workflow product.” Five consolidated iterations describe the actual evolution:
 
-| Increment | Result |
-|---|---|
-| E14–E16 | Approve the invoice product correction, requirements v3, and affected architecture/UML. |
-| E17 | Establish immutable definitions, isolated run state, executor vocabulary, retry policy, and shared step logic. |
-| E18–E19 | Add bounded invoice/PDF submission, persistent approval waiting, idempotent decision, and same-run resume. |
-| E20–E21 | Complete five orchestration scenarios, then choreography and normalized parity. |
-| E22 | Add bounded workflow draft/revision configuration. |
-| E23 | Complete repeatability, trace, isolation, restart-boundary, PDF, dependency, and timing checks. |
-| E24 | Make the browser demonstration user-outcome-first and inspect desktop/mobile Chromium paths. |
-| E25 | Reduce deployment to one service and verify both modes across real process recreation. |
-| E26 | Reconcile this report, UML, reuse disclosure, evidence, and defense script. |
+| Iteration | Goal | Main result | Review lesson |
+|---|---|---|---|
+| 1. Workflow foundation | Define correct conditional graph semantics | Immutable types, graph validation, resolver, retry vocabulary | Correct algorithms still need a concrete user problem. |
+| 2. Persistent execution | Run isolated workflows in two ways | Cursor, attempts, trace, orchestration, choreography | Green nodes did not communicate product value. |
+| 3. Invoice product | Apply the engine to one bounded process | PDF/metadata validation, persistent approval, archive, notification | Business states made success and failure understandable. |
+| 4. Configuration and quality | Add safe configurability and recovery evidence | Draft/revision constructor, parity, restart, isolation, exact traces | Advanced controls must remain secondary to the invoice result. |
+| 5. Consolidation and submission | Deliver one coherent product and artifact set | Five scenario selector, one runtime, minimal repository, synchronized report | Simplicity and honest limitations are part of product quality. |
 
 ## 2.2 Evidence policy
 
-Claims are classified as `VERIFIED`, `RECONSTRUCTED`, `PLANNED`, `UNVERIFIED`, or `INCONCLUSIVE`. A source file proves implementation presence but not that a behavior passed. A test definition is not a test result. A model or UML diagram is design evidence, not runtime evidence. Private correspondence is paraphrased in the process record rather than committed.
+Claims are classified as **verified**, **reconstructed**, or **not claimed**. A source file proves implementation presence but not that a behavior passed. A test definition is not a test result. A model or UML diagram is design evidence, not runtime evidence. Private correspondence is paraphrased in the process record rather than committed.
 
-This distinction matters because the historical report claimed optional Kafka behavior, random task outcomes, cyclic retry, and particular sprint measurements that no longer describe the accepted product. The final report uses the current requirements and the recorded executable checks instead.
+This distinction matters because the earlier prototype discussed optional broker behavior, random task outcomes, and cyclic retry that no longer describe the final product. The final report uses current requirements and executable checks instead.
 
 ## 2.3 Configuration management
 
-The original linear baseline and advanced prototype were preserved in Git before the invoice evolution. The current implementation work is based on commit `958d4f7f2b8b58dfb3cef2c3242082fa5a018ab0` on branch `refactor/defense-core`. The changes described here remain a controlled working-tree increment at the time of this report; a commit, push, release, and instructor approval are not claimed.
+Git is the source of truth for requirements, ADRs, UML sources, code, tests, and report source. Runtime databases, uploaded documents, caches, virtual environments, and local build tools are excluded. Activated workflow revisions are immutable inside the application. The final repository contains one application rather than a legacy and replacement runtime side by side.
+
+## 2.4 Response to feedback
+
+The strongest instructor feedback was not about a missing algorithm. It was about meaning: after watching two executors light successful nodes and one failure scenario, the evaluator still could not explain what the project did. CR-002 treated that as a requirements problem. The response was to introduce a recognizable business object, explicit actors, real validation, a persistent human decision, final business states, and a user-outcome-first dashboard while preserving the approved comparison of orchestration and choreography.
+
+A peer report praised by the professor was also reviewed as a quality reference. Its useful qualities were a formal academic structure, explicit requirements, process/iteration narrative, architecture figures, screenshots, and evidence. Its project content and implementation were unrelated and were not reused. This report adopts the communication qualities without copying the peer system or its text.
+
+## 2.5 Definition of Done
+
+An increment was considered done only when its requirement and architecture impact were understood, focused tests passed, the complete suite still passed, failure paths were controlled, source boundaries remained clean, and user-facing/report claims matched evidence. For the final artifact, the Definition of Done additionally requires one correct startup path, synchronized requirements/UML/report, a reproducible PDF build, disclosed reuse, explicit limitations, and absence of obsolete parallel product files.
 
 # 3. Requirements and acceptance scenarios
 
 ## 3.1 Requirement structure
 
-Requirements v3 contains 49 active functional requirements, 11 non-functional requirements, and 14 explicit constraints. The detailed baseline and forward/reverse traceability are repository artifacts; the following table groups the behavior used for evaluation.
+The current specification contains 49 active functional requirements, 11 non-functional requirements, and 14 explicit constraints. The detailed baseline and forward/reverse traceability are repository artifacts; the following table groups the behavior used for evaluation.
 
 | Area | Representative requirements | Observable acceptance |
 |---|---|---|
@@ -113,6 +154,13 @@ Requirements v3 contains 49 active functional requirements, 11 non-functional re
 | Completion | FR-043–FR-047 | Archive/manual-action behavior, internal notification, retrievable result. |
 | User interface | FR-053, NFR-011 | Business identity/state/action/result visible before technical trace. |
 | Quality | NFR-001–NFR-010 | Parity, repeatability, restart retention, isolation, complete trace, timing, no prohibited dependency. |
+
+Representative user stories are:
+
+- As a **submitter**, I want to upload an invoice and see its state so that I know whether action is still required.
+- As an **approver**, I want one persistent work item and one authoritative decision so that the invoice cannot advance twice.
+- As a **workflow operator**, I want to configure a bounded definition and activate an immutable revision so that later changes do not rewrite running history.
+- As an **academic evaluator**, I want to replay the same cases in both modes so that I can compare coordination without changing business semantics.
 
 ## 3.2 Input boundaries
 
@@ -134,7 +182,7 @@ Original filenames are metadata only; generated identities select storage paths.
 | Task | Type | Total attempt bound | Outgoing result |
 |---|---|---:|---|
 | Validate invoice | `DOCUMENT_VALIDATION` | 1 | Success → Review; Failure → Notify |
-| Review invoice | `HUMAN_APPROVAL` | 1 (not retried) | Approve → Archive; Reject → Notify |
+| Review invoice | `HUMAN_APPROVAL` | Not applicable | Approve → Archive; Reject → Notify |
 | Archive invoice | `ARCHIVE_DOCUMENT` | 2 | Success or final Failure → Notify |
 | Notify submitter | `CREATE_NOTIFICATION` | 2 | No edge; terminal after result |
 
@@ -150,7 +198,7 @@ Each scenario is executed once in orchestration and once in choreography.
 | S4 Retry then archive | One injected retryable archive failure, then success | `ARCHIVED`, run `COMPLETED` | Two attempts, one retry, no edge during retry, then success edge. |
 | S5 Manual action | Retryable archive failure through bound | `NEEDS_MANUAL_ACTION`, run `COMPLETED` | Two failures, one retry, failure edge after exhaustion, notification. |
 
-The deterministic fault adapter is keyed by stable run/task configuration, not by a display name. This makes failure demonstrations reproducible and prevents renaming a task from changing its behavior.
+The deterministic archive behavior is selected explicitly and persisted with the run, not inferred from a display name. This makes failure demonstrations reproducible and prevents renaming a task from changing routing policy.
 
 # 4. Architecture
 
@@ -167,7 +215,7 @@ The system is a layered modular monolith: one deployable FastAPI process with pr
 
 \clearpage
 
-![Component view and inward dependency direction.](architecture/uml-v3/rendered-pdf/component-view.pdf){width=84%}
+![Component view and inward dependency direction.](architecture/uml/rendered-pdf/component-view.pdf){width=84%}
 
 \clearpage
 
@@ -177,7 +225,7 @@ Activated workflow revisions are immutable. Runs reference one revision and one 
 
 \clearpage
 
-![Conceptual domain model separating definition, run, and invoice ownership.](architecture/uml-v3/rendered-pdf/domain-model.pdf){width=90%}
+![Conceptual domain model separating definition, run, and invoice ownership.](architecture/uml/rendered-pdf/domain-model.pdf){width=90%}
 
 \clearpage
 
@@ -189,7 +237,7 @@ The first valid decision is authoritative. An identical replay returns the exist
 
 \clearpage
 
-![Run and approval lifecycle.](architecture/uml-v3/rendered-pdf/run-state.pdf){width=100%}
+![Run and approval lifecycle.](architecture/uml/rendered-pdf/run-state.pdf){width=100%}
 
 \clearpage
 
@@ -199,7 +247,7 @@ The target topology is one application service plus a persistent database and co
 
 \clearpage
 
-![Single-service deployment view.](architecture/uml-v3/rendered-pdf/deployment-view.pdf){width=100%}
+![Single-service deployment view.](architecture/uml/rendered-pdf/deployment-view.pdf){width=100%}
 
 \clearpage
 
@@ -227,7 +275,7 @@ Business validation failure, rejection, and non-retryable technical failure rout
 
 \clearpage
 
-![Shared task, retry, routing, and waiting activity.](architecture/uml-v3/rendered-pdf/routing-retry-activity.pdf){width=95%}
+![Shared task, retry, routing, and waiting activity.](architecture/uml/rendered-pdf/routing-retry-activity.pdf){width=95%}
 
 \clearpage
 
@@ -253,7 +301,7 @@ The orchestration strategy has an explicit central loop. It asks the shared step
 \clearpage
 \begin{landscape}
 \begin{center}
-\includegraphics[width=0.98\linewidth,height=0.84\textheight,keepaspectratio]{architecture/uml-v3/rendered-pdf/orchestration-sequence.pdf}
+\includegraphics[width=0.98\linewidth,height=0.84\textheight,keepaspectratio]{architecture/uml/rendered-pdf/orchestration-sequence.pdf}
 \par\small Figure 9. Orchestration sequence, including persistent wait and same-run resume.
 \end{center}
 \end{landscape}
@@ -268,7 +316,7 @@ After approval, choreography constructs a new processing scope from the database
 \clearpage
 \begin{landscape}
 \begin{center}
-\includegraphics[width=0.98\linewidth,height=0.84\textheight,keepaspectratio]{architecture/uml-v3/rendered-pdf/choreography-sequence.pdf}
+\includegraphics[width=0.98\linewidth,height=0.84\textheight,keepaspectratio]{architecture/uml/rendered-pdf/choreography-sequence.pdf}
 \par\small Figure 10. Choreography sequence and run-scoped EventBus lifecycle.
 \end{center}
 \end{landscape}
@@ -302,18 +350,18 @@ The empirical conclusion is modest: both strategies can implement the bounded pr
 | Server | Uvicorn |
 | Verification | pytest and HTTPX; temporary Playwright/Chromium only for browser acceptance |
 
-The current v3 path lives in `app/domain`, `app/application`, `app/persistence`, `app/infrastructure`, and `app/presentation`. Legacy routes remain accessible only as a compatibility demonstration and are not part of the accepted invoice semantics.
+The product code lives in `app/domain`, `app/application`, `app/persistence`, `app/infrastructure`, and `app/presentation`. `app/runtime.py` is the composition root for database, storage, executors, and coordination services; `app/main.py` exposes one application. The published HTTP contract retains the `/api/v3` prefix as its version identifier, but there is no second or legacy product runtime.
 
 ## 7.2 Browser design
 
 The UI is organized by user outcome:
 
 1. invoice submission;
-2. invoice identity and current business state;
-3. required next action;
-4. final result and execution mode;
-5. collapsed technical audit trace;
-6. collapsed advanced workflow constructor.
+2. explicit deterministic archive scenario and execution mode;
+3. invoice identity and current business state;
+4. required next action and human decision;
+5. final result and ordered technical audit trace;
+6. secondary bounded workflow constructor.
 
 This ordering directly addresses the earlier demonstration problem. The constructor remains useful but no longer competes with the primary product story.
 
@@ -325,17 +373,16 @@ The constructor supports draft CRUD, complete validation feedback, graph project
 
 # 8. Verification results
 
-## 8.1 Executed suites
+## 8.1 Executed suite
 
 | Verification | Recorded result | What it supports |
 |---|---:|---|
-| Full isolated repository suite at E26 reconciliation | **220 passed in 10.83 s** | Current integrated regression result in the recorded environment. |
-| Focused deployment checks | **4 passed in 4.05 s** | Deployment inventory and both-mode OS-process restart. |
-| Browser acceptance before E25 | **216 passed in 6.73 s** plus Chromium path | Connected UI behavior before deployment-only additions. |
-| Repeated parity/quality matrix before E24 | **213 passed in 6.76 s** | Repeatability, exact traces, isolation, PDF boundary, timing. |
-| Status and trace reads | **100/100 below 1 s; p95 1.172 ms** | NFR-010 in the recorded local environment. |
+| Complete suite after product consolidation | **205 passed** | Current domain, application, persistence, API, UI-structure, restart, deployment, and hygiene regression result. |
+| Five-scenario matrix | 5 scenarios × 2 modes, plus normalized comparisons | Approved, rejected, invalid, retry-success, and manual-action parity. |
+| Deployment inventory | 4 focused checks within the complete suite | One application, one volume, non-root image, launcher hygiene, and absence of legacy runtime. |
+| Status and trace reads | 100/100 below 1 s in the recorded reference run | NFR-010 local responsiveness threshold. |
 
-The final 220 count supersedes earlier intermediate counts; those earlier numbers are shown only to identify the evidence checkpoint.
+The exact duration is environment-dependent; the final acceptance criterion is zero failures in the complete suite.
 
 ## 8.2 Behavioral coverage
 
@@ -350,16 +397,16 @@ The acceptance and quality tests cover:
 - sequential and threaded two-run isolation;
 - fourteen rejected PDF/input classes producing no approval work;
 - EventBus handler cleanup after waiting, terminal, and controlled error;
-- desktop/mobile Chromium path, zero 390 px horizontal overflow, and no console/page errors;
+- desktop/mobile layout evidence and connected HTTP/UI structure checks;
 - source/deployment inventory rejecting broker dependencies.
 
 ## 8.3 What was not verified
 
-No Docker-compatible engine was available, so the Dockerfile was inspected and Compose parsed, but the image was not built and container-volume restart was not executed. Browser acceptance used one Chromium engine; Firefox, Safari, assistive technology, and external human usability were not tested. No production migration, external deployment, load test, security test, or release was performed.
+No Docker-compatible engine was available in the final report-build environment, so the Dockerfile and Compose inventory were inspected but the image was not built there. Firefox, Safari, assistive technology, and external human usability were not tested. No production migration, external deployment, load test, or security certification was performed.
 
 # 9. Deployment and recovery
 
-The final Compose inventory declares one `app` service and one persistent `invoice_data` volume. The volume contains the invoice SQLite database, a legacy compatibility database, and generated document storage. The image runs as a non-root user and has a local HTTP health check. Dependencies are installed at image build time, not every container start.
+The final Compose inventory declares one `app` service and one persistent `invoice_data` volume. The volume contains `invoice.db` and generated document storage. The image runs as a non-root user and has a local HTTP health check. Dependencies are installed at image build time, not every container start.
 
 For each mode, the process-restart test performed the following:
 
@@ -392,14 +439,14 @@ The detailed dependency/reference statement is reproduced as `docs/REUSE_DISCLOS
 | Concern | Authoritative artifact |
 |---|---|
 | Approved product change | `docs/evolution/CR-002-invoice-approval-reference-application.md` |
-| Atomic requirements | `docs/requirements/requirements-v3.md` |
-| Requirements traceability | `docs/requirements/requirements-traceability-v3.md` |
-| Architecture and decisions | `docs/architecture/architecture-overview-v3.md`, `architecture-decisions-v3.md` |
-| Architecture traceability | `docs/architecture/architecture-traceability-v3.md` |
-| UML sources and renders | `docs/architecture/uml-v3/*.puml`, `rendered/*.svg` |
+| Atomic requirements | `docs/requirements/requirements.md` |
+| Requirements traceability | `docs/requirements/traceability.md` |
+| Architecture and decisions | `docs/architecture/overview.md`, `decisions.md` |
+| Architecture traceability | `docs/architecture/traceability.md` |
+| UML sources and renders | `docs/architecture/uml/*.puml`, `rendered/*.svg` |
 | Backlog and process | `docs/process/product-backlog.md`, `development-process.md`, `sprint-record.md` |
 | Evidence and limitations | `docs/process/evidence-register.md`, `risk-register.md` |
-| Increment results | `docs/implementation/` |
+| Iteration outcomes | `docs/process/sprint-record.md` |
 | Defense narrative | `docs/DEFENSE_SCRIPT.md` |
 
 The report embeds the figures and summary tables needed to understand the product without navigating these files. The repository artifacts remain available for detailed verification.
@@ -414,11 +461,11 @@ The following are limitations, not hidden features:
 - Authentication and authorization are out of scope; logical roles are not security identities.
 - SQLite and local storage suit this bounded prototype, not multi-host production deployment.
 - There is no production migration from every historical schema.
-- The container image and volume restart still need execution on a machine with Docker or compatible tooling.
+- The container image should be rebuilt and volume restart repeated in the final defense machine environment.
 - Cross-browser and assistive-technology testing remain incomplete.
 - Parallel fork/join, cycles, arbitrary plugins, external business integrations, and a general BPMN editor are excluded.
 
-The best next work is not another feature. It is to build the container, run a volume restart, rehearse the five-minute product demonstration, obtain external usability feedback, and close the configuration-management checkpoint with an intentional commit/review.
+The best next work is not another feature. It is to rehearse the five-minute product demonstration, repeat container startup on the defense machine, obtain external usability/accessibility feedback, and request the professor's confirmation of the clarified product direction.
 
 # 13. Conclusion
 
@@ -455,7 +502,7 @@ All eight UML sources were rendered locally to SVG and inspected after generatio
 
 | Claim | Status at report time |
 |---|---|
-| 220-test isolated suite | Verified in recorded environment |
+| 205-test consolidated suite | Verified in the final repository environment |
 | Five scenarios in both modes | Verified |
 | Normalized parity across five pairs | Verified |
 | Real-process waiting/restart/resume in both modes | Verified |
@@ -464,5 +511,5 @@ All eight UML sources were rendered locally to SVG and inspected after generatio
 | Chromium desktop/mobile path | Verified in one reference engine |
 | Firefox/Safari/assistive technology | Not executed |
 | Production migration or external deployment | Not executed |
-| Commit/push/release of the E17–E26 working-tree increment | Not claimed |
+| One final invoice application with no legacy runtime | Verified by repository inventory test |
 | Instructor acceptance of the final implementation/report | Not claimed |

@@ -1,93 +1,72 @@
 @startuml
-title Defense Core — Deterministic Validation, Routing, Retry, and Terminal Activity
+title Invoice Workflow — Shared Task, Retry, Routing, and Waiting Activity
 skinparam shadowing false
 
 start
-:Receive workflow definition,
-mode, and named deterministic scenario;
-:Validate exactly one designated start;
-:Validate at least one reachable terminal
-and every task reachable from start;
-:Reject self-edge or directed cycle;
-:Accept only SUCCESS, FAILURE, ALWAYS;
-:Reject equal-precedence ambiguity;
-:Validate every task has a positive
-maximum-total-attempt bound;
+:Load immutable revision, invoice,
+run, and versioned cursor;
 
-if (Complete definition valid?) then (no)
-  :Reject definition with violations;
-  :Create no run, attempt, retry,
-  transition-selection, or trace state;
+if (Cursor phase READY?) then (no)
+  :Return waiting or terminal projection;
   stop
 else (yes)
-  :Create isolated run and persist initial trace;
-  :Set current task to designated start;
 endif
 
-while (Run has no terminal state?) is (continue)
-  :Take next deterministic scenario outcome
-  for current task;
-  :Persist attempt ordinal and outcome
-  in run-local trace order;
+if (Current task HUMAN_APPROVAL?) then (yes)
+  :Create or get unique pending work item;
+  :Commit invoice/run WAITING state
+  and ordered trace;
+  :Release choreography subscription if present;
+  stop
+else (automatic)
+  :Resolve executor by controlled task type;
+  :Execute with bounded context;
+  :Commit attempt ordinal, outcome,
+  failure class, reason, and trace;
+endif
 
-  if (Outcome is FAILURE?) then (yes)
-    if (Completed attempts < positive bound?) then (yes)
-      :Persist retry observation;
-      :Keep current task unchanged;
-      note right
-      Retry repeats the current task.
-      No transition is selected or traversed.
-      Bound 1 permits zero retries.
-      end note
-    else (no — bound reached)
-      :Do not retry;
-      :Resolve final FAILURE normally;
-      if (Matching FAILURE transition exists?) then (yes)
-        :Select matching FAILURE transition;
-        :Persist selection before advancement;
-        :Set current task to selected target;
-      else (no)
-        if (ALWAYS fallback exists?) then (yes)
-          :Select ALWAYS fallback;
-          :Persist selection before advancement;
-          :Set current task to selected target;
-        else (no)
-          :Persist unsuccessful terminal state
-          and terminal trace observation together;
-          stop
-        endif
-      endif
-    endif
-  else (SUCCESS)
-    :Resolve final SUCCESS normally;
-    if (Matching SUCCESS transition exists?) then (yes)
-      :Select matching SUCCESS transition;
-      :Persist selection before advancement;
-      :Set current task to selected target;
-    else (no)
-      if (ALWAYS fallback exists?) then (yes)
-        :Select ALWAYS fallback;
-        :Persist selection before advancement;
-        :Set current task to selected target;
-      else (no)
-        :Persist successful terminal state
-        and terminal trace observation together;
-        stop
-      endif
-    endif
+if (Retryable technical failure?) then (yes)
+  if (Completed attempts below bound?) then (yes)
+    :Commit retry observation;
+    :Keep same task and READY cursor;
+    note right
+    Retry selects no graph edge.
+    Only automatic tasks enter this path.
+    end note
+    stop
+  else (bound exhausted)
+    :Use final FAILURE for routing;
   endif
-endwhile (terminal)
+else (no)
+  if (Outcome FAILURE?) then (yes)
+    :Business/non-retryable failure
+    routes immediately;
+  else (SUCCESS)
+  endif
+endif
 
-stop
+if (Matching outcome transition?) then (yes)
+  :Select SUCCESS or FAILURE edge;
+  :Commit transition + target READY cursor + trace;
+  stop
+else (no)
+  if (ALWAYS transition?) then (yes)
+    :Select fallback edge;
+    :Commit transition + target READY cursor + trace;
+    stop
+  else (no)
+    if (Final outcome SUCCESS?) then (yes)
+      :Commit successful terminal + trace;
+    else (FAILURE)
+      :Commit unsuccessful terminal + trace;
+    endif
+    stop
+  endif
+endif
 
 legend
-Status: APPROVED — checkpoint 4 architecture baseline
-Requirements baseline: 6074fd7ef490ea3b08177e7a786035159f39a91c
-Working base: b5c7da9e51382bb418f017790ae944c8dff26a06
-Implementation: NOT STARTED
-Executable verification: NOT STARTED
-Release: NOT SCHEDULED
-Both modes use this one accepted checkpoint-4 semantic algorithm.
-Equal-precedence ambiguity is rejected during validation, not resolved here.
+Approve later supplies SUCCESS; reject supplies FAILURE and is never retried.
+Both modes call this shared semantic activity.
+All state/trace changes commit before the next control trigger.
 endlegend
 @enduml

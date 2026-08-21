@@ -39,9 +39,8 @@ def running_service(data_root: Path, port: int):
     environment = os.environ.copy()
     environment.update(
         {
-            "DATABASE_URL": f"sqlite:///{data_root / 'workflow.db'}",
             "INVOICE_DATABASE_URL": (
-                f"sqlite:///{data_root / 'invoice_v3.db'}"
+                f"sqlite:///{data_root / 'invoice.db'}"
             ),
             "INVOICE_STORAGE_ROOT": str(data_root / "documents"),
         }
@@ -121,8 +120,7 @@ def test_waiting_invoice_survives_process_restart_and_resumes(
         assert waiting["invoice_state"] == "PENDING_APPROVAL"
         assert waiting["run_status"] == "WAITING_FOR_APPROVAL"
 
-    assert (tmp_path / "workflow.db").exists()
-    assert (tmp_path / "invoice_v3.db").exists()
+    assert (tmp_path / "invoice.db").exists()
     assert any((tmp_path / "documents").iterdir())
 
     with running_service(tmp_path, port) as restarted_url:

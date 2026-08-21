@@ -8,7 +8,7 @@ from uuid import uuid4
 
 from app.application.document_ports import DocumentStorage
 from app.domain.invoice import RawInvoiceMetadata
-from app.domain.types import ExecutionMode
+from app.domain.types import DemoScenario, ExecutionMode
 
 
 class SubmissionUnavailable(RuntimeError):
@@ -32,6 +32,7 @@ class InvoiceSubmission:
     declared_media_type: str
     document: BinaryIO
     mode: ExecutionMode
+    scenario: DemoScenario = DemoScenario.STANDARD
 
 
 @dataclass(frozen=True)
@@ -41,6 +42,7 @@ class CreateSubmission:
     revision_id: int
     start_task_id: int
     mode: ExecutionMode
+    scenario: DemoScenario
     metadata: RawInvoiceMetadata
     document_identity: str
     original_filename: str
@@ -82,6 +84,12 @@ class InvoiceSubmissionService:
             mode = ExecutionMode(submission.mode)
         except (TypeError, ValueError) as exc:
             raise ValueError(f"Unsupported execution mode {submission.mode!r}") from exc
+        try:
+            scenario = DemoScenario(submission.scenario)
+        except (TypeError, ValueError) as exc:
+            raise ValueError(
+                f"Unsupported demonstration scenario {submission.scenario!r}"
+            ) from exc
         if len(submission.original_filename) > 255:
             raise ValueError("original_filename cannot exceed 255 characters")
         if not 1 <= len(submission.declared_media_type) <= 100:
@@ -98,6 +106,7 @@ class InvoiceSubmissionService:
             revision_id=workflow.revision_id,
             start_task_id=workflow.start_task_id,
             mode=mode,
+            scenario=scenario,
             metadata=submission.metadata,
             document_identity=stored.identity,
             original_filename=submission.original_filename,

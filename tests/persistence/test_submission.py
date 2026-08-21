@@ -112,6 +112,7 @@ def test_submission_atomically_creates_invoice_run_cursor_and_trace(
     assert run.invoice_id == invoice.id
     assert run.revision_id == revision.id
     assert run.mode == "orchestration"
+    assert run.scenario == "standard"
     assert cursor.current_task_id == start.id
     assert cursor.phase == "READY"
     assert cursor.state_version == 1

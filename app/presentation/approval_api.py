@@ -1,4 +1,4 @@
-"""Separate v3 HTTP boundary for persistent approval work."""
+"""HTTP boundary for persistent approval work."""
 
 from collections.abc import Callable
 from dataclasses import asdict
@@ -37,7 +37,7 @@ def create_approval_router(
     coordinator_dependency: Callable[..., InvoiceExecutionCoordinator] | None = None,
     run_query_dependency: Callable[..., InvoiceRunQueryService] | None = None,
 ) -> APIRouter:
-    router = APIRouter(prefix="/api/v3/approvals", tags=["approval-v3"])
+    router = APIRouter(prefix="/api/v3/approvals", tags=["approvals"])
     coordinator_provider = coordinator_dependency or (lambda: None)
     run_query_provider = run_query_dependency or (lambda: None)
 

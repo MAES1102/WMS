@@ -1,1 +1,1 @@
-"""Separate v3 HTTP presentation boundary."""
+"""HTTP presentation boundary for the invoice application."""

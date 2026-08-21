@@ -24,6 +24,14 @@ class ExecutionMode(str, Enum):
     CHOREOGRAPHY = "choreography"
 
 
+class DemoScenario(str, Enum):
+    """Deterministic archive behavior selectable for demonstrations."""
+
+    STANDARD = "standard"
+    RETRY_THEN_SUCCESS = "retry_then_success"
+    ARCHIVE_UNAVAILABLE = "archive_unavailable"
+
+
 class TaskType(str, Enum):
     """Closed task catalog for the invoice reference workflow (FR-049)."""
 

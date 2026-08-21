@@ -3,7 +3,7 @@ from io import BytesIO
 from pypdf import PdfWriter
 import pytest
 
-from app.v3_runtime import invoice_event_bus
+from app.runtime import invoice_event_bus
 
 
 def one_page_pdf() -> bytes:
@@ -17,7 +17,6 @@ def one_page_pdf() -> bytes:
 @pytest.mark.parametrize("mode", ("orchestration", "choreography"))
 def test_visible_invoice_ui_and_full_approval_path(client, mode: str) -> None:
     page = client.get("/ui")
-    legacy = client.get("/legacy-ui")
 
     assert page.status_code == 200
     assert "Invoice Approval Desk" in page.text
@@ -31,7 +30,6 @@ def test_visible_invoice_ui_and_full_approval_path(client, mode: str) -> None:
     assert "Required next action" in page.text
     assert "Final result" in page.text
     assert "Technical audit trace" in page.text
-    assert legacy.status_code == 200
 
     submitted = client.post(
         "/api/v3/invoices",
@@ -57,6 +55,7 @@ def test_visible_invoice_ui_and_full_approval_path(client, mode: str) -> None:
     assert waiting["invoice_state"] == "PENDING_APPROVAL"
     assert waiting["run_status"] == "WAITING_FOR_APPROVAL"
     assert waiting["execution_mode"] == mode
+    assert waiting["scenario"] == "standard"
     assert waiting["supplier_name"] == "Acme Supplies"
     assert waiting["invoice_number"] == f"INV-VISIBLE-{mode}"
     assert waiting["work_item_id"]
@@ -76,6 +75,7 @@ def test_visible_invoice_ui_and_full_approval_path(client, mode: str) -> None:
     completed = decided.json()["run"]
     assert completed["invoice_state"] == "ARCHIVED"
     assert completed["execution_mode"] == mode
+    assert completed["scenario"] == "standard"
     assert completed["supplier_name"] == "Acme Supplies"
     assert completed["invoice_number"] == f"INV-VISIBLE-{mode}"
     assert completed["run_status"] == "COMPLETED"
@@ -86,3 +86,68 @@ def test_visible_invoice_ui_and_full_approval_path(client, mode: str) -> None:
     assert completed["approval"]["decision"] == "APPROVE"
     assert invoice_event_bus.subscriber_count == 0
     assert client.get(f"/api/v3/runs/{waiting['run_id']}").json() == completed
+
+
+@pytest.mark.parametrize("mode", ("orchestration", "choreography"))
+@pytest.mark.parametrize(
+    ("scenario", "expected_state", "expected_notification"),
+    (
+        (
+            "retry_then_success",
+            "ARCHIVED",
+            "was archived successfully",
+        ),
+        (
+            "archive_unavailable",
+            "NEEDS_MANUAL_ACTION",
+            "requires manual archive action",
+        ),
+    ),
+)
+def test_visible_deterministic_archive_scenarios(
+    client,
+    mode: str,
+    scenario: str,
+    expected_state: str,
+    expected_notification: str,
+) -> None:
+    submitted = client.post(
+        "/api/v3/invoices",
+        data={
+            "supplier_name": "Demo Supplier",
+            "invoice_number": f"INV-{mode}-{scenario}",
+            "issue_date": "2026-08-13",
+            "amount": "250.00",
+            "currency": "EUR",
+            "mode": mode,
+            "scenario": scenario,
+        },
+        files={
+            "document": (
+                "invoice.pdf",
+                one_page_pdf(),
+                "application/pdf",
+            )
+        },
+    )
+    waiting = submitted.json()
+
+    decided = client.post(
+        f"/api/v3/approvals/{waiting['work_item_id']}/decision",
+        json={
+            "choice": "APPROVE",
+            "note": "Run deterministic archive scenario",
+            "expected_state_version": waiting["state_version"],
+        },
+    )
+
+    assert submitted.status_code == 201
+    assert decided.status_code == 200
+    completed = decided.json()["run"]
+    assert completed["scenario"] == scenario
+    assert completed["invoice_state"] == expected_state
+    assert expected_notification in completed["notification"]
+    assert sum(
+        item["kind"] == "RETRY_OBSERVATION"
+        for item in completed["trace"]
+    ) == 1

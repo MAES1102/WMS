@@ -1,11 +1,17 @@
 """Closed automatic-executor registry and deterministic verification adapter."""
 
-from collections.abc import Mapping
+from collections.abc import Callable, Mapping
 from dataclasses import dataclass
 from types import MappingProxyType
 
 from app.application.ports import ExecutionContext, TaskExecutor
-from app.domain.types import TaskResult, TaskType
+from app.domain.types import (
+    DemoScenario,
+    FailureClass,
+    TaskOutcome,
+    TaskResult,
+    TaskType,
+)
 
 
 AUTOMATIC_TASK_TYPES = frozenset(
@@ -113,4 +119,34 @@ class DeterministicFaultExecutor:
         scheduled = self._schedule.result_for(context)
         if scheduled is not None:
             return scheduled
+        return self._wrapped.execute(context)
+
+
+class ArchiveDemoFaultExecutor:
+    """Apply one of two explicit archive-failure demonstrations."""
+
+    def __init__(
+        self,
+        wrapped: TaskExecutor,
+        scenario_for_run: Callable[[str], DemoScenario],
+    ) -> None:
+        self._wrapped = wrapped
+        self._scenario_for_run = scenario_for_run
+
+    def execute(self, context: ExecutionContext) -> TaskResult:
+        if context.task_type is not TaskType.ARCHIVE_DOCUMENT:
+            raise ValueError(
+                "ArchiveDemoFaultExecutor requires ARCHIVE_DOCUMENT"
+            )
+        scenario = DemoScenario(self._scenario_for_run(context.run_id))
+        should_fail = scenario is DemoScenario.ARCHIVE_UNAVAILABLE or (
+            scenario is DemoScenario.RETRY_THEN_SUCCESS
+            and context.attempt_ordinal == 1
+        )
+        if should_fail:
+            return TaskResult(
+                TaskOutcome.FAILURE,
+                FailureClass.RETRYABLE_TECHNICAL,
+                "demonstration: archive storage temporarily unavailable",
+            )
         return self._wrapped.execute(context)

@@ -153,6 +153,7 @@ def create_ready_approval(
         invoice_id=invoice_id,
         revision_id=revision.id,
         mode="orchestration",
+        scenario="standard",
         status="RUNNING",
         started_at=now,
         finished_at=None,

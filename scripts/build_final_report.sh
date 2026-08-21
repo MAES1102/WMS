@@ -8,7 +8,6 @@ mkdir -p "$repo_root/output/pdf"
 
 TEXINPUTS="$repo_root/docs:" pandoc "$repo_root/docs/FINAL_REPORT.md" \
   --from markdown+raw_tex \
-  --toc \
   --resource-path="$repo_root/docs:$repo_root" \
   --pdf-engine=xelatex \
   --top-level-division=chapter \

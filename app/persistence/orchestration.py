@@ -12,7 +12,7 @@ from app.application.orchestration import (
     InvoiceTraceView,
     RunControlState,
 )
-from app.domain.types import ExecutionMode, TaskType, TerminalDecision
+from app.domain.types import DemoScenario, ExecutionMode, TaskType, TerminalDecision
 from app.persistence.models import (
     ApprovalDecision,
     ApprovalWorkItem,
@@ -135,6 +135,7 @@ class SqlAlchemyInvoiceRunQueryService:
             ),
             run_id=run.id,
             execution_mode=ExecutionMode(run.mode),
+            scenario=DemoScenario(run.scenario),
             invoice_state=invoice.state,
             run_status=run.status,
             cursor_phase=CursorPhase(cursor.phase),

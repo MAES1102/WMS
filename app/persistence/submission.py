@@ -1,4 +1,4 @@
-"""SQLAlchemy transaction adapter for initial v3 invoice submission."""
+"""SQLAlchemy transaction adapter for initial invoice submission."""
 
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
@@ -75,6 +75,7 @@ class SqlAlchemySubmissionUnitOfWork:
             invoice_id=command.invoice_id,
             revision_id=command.revision_id,
             mode=command.mode.value,
+            scenario=command.scenario.value,
             status="RUNNING",
             started_at=command.created_at,
             finished_at=None,
@@ -92,7 +93,10 @@ class SqlAlchemySubmissionUnitOfWork:
             observation_kind="RUN_STARTED",
             task_id=command.start_task_id,
             attempt_ordinal=None,
-            detail=f"invoice_id={command.invoice_id}; mode={command.mode.value}",
+            detail=(
+                f"invoice_id={command.invoice_id}; mode={command.mode.value}; "
+                f"scenario={command.scenario.value}"
+            ),
             timestamp=command.created_at,
         )
         try:

@@ -9,7 +9,7 @@ from sqlalchemy.pool import StaticPool
 
 from app.application.invoice_validation import MAX_PDF_BYTES
 from app.application.submission import InvoiceSubmissionService
-from app.db import Base
+from app.persistence.database import Base
 from app.infrastructure.documents import LocalDocumentStorage
 from app.persistence.models import (
     Invoice,
@@ -22,7 +22,7 @@ from app.persistence.submission import SqlAlchemySubmissionUnitOfWork
 from app.presentation.submission_api import create_submission_router
 
 
-V3_TABLES = tuple(
+INVOICE_TABLES = tuple(
     table
     for table in Base.metadata.sorted_tables
     if table.name.startswith("invoice_") or table.name == "invoices"
@@ -59,11 +59,11 @@ def db() -> Session:
     def _enable_foreign_keys(dbapi_connection, _connection_record) -> None:
         dbapi_connection.execute("PRAGMA foreign_keys=ON")
 
-    Base.metadata.create_all(engine, tables=V3_TABLES)
+    Base.metadata.create_all(engine, tables=INVOICE_TABLES)
     with Session(engine) as session:
         yield session
         session.rollback()
-    Base.metadata.drop_all(engine, tables=V3_TABLES)
+    Base.metadata.drop_all(engine, tables=INVOICE_TABLES)
 
 
 def activate_revision(db: Session) -> None:

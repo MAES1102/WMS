@@ -8,7 +8,7 @@ from sqlalchemy.orm import Session
 from sqlalchemy.pool import StaticPool
 
 from app.application.approval import HumanApprovalService
-from app.db import Base
+from app.persistence.database import Base
 from app.persistence.approval import (
     SqlAlchemyApprovalQueryService,
     SqlAlchemyApprovalUnitOfWork,
@@ -18,7 +18,7 @@ from app.presentation.approval_api import create_approval_router
 from tests.persistence.test_approval import create_ready_approval
 
 
-V3_TABLES = tuple(
+INVOICE_TABLES = tuple(
     table
     for table in Base.metadata.sorted_tables
     if table.name.startswith("invoice_") or table.name == "invoices"
@@ -47,7 +47,7 @@ def approval_api():
     def _enable_foreign_keys(dbapi_connection, _connection_record) -> None:
         dbapi_connection.execute("PRAGMA foreign_keys=ON")
 
-    Base.metadata.create_all(engine, tables=V3_TABLES)
+    Base.metadata.create_all(engine, tables=INVOICE_TABLES)
     with Session(engine) as db:
         run_id, _invoice_id, _review, _archive, _notify = create_ready_approval(db)
         ids = iter(("work-http-1", "decision-http-1"))
@@ -68,7 +68,7 @@ def approval_api():
         with TestClient(app) as client:
             yield client, db
         db.rollback()
-    Base.metadata.drop_all(engine, tables=V3_TABLES)
+    Base.metadata.drop_all(engine, tables=INVOICE_TABLES)
 
 
 def test_pending_list_and_detail_lead_with_invoice_context(approval_api) -> None:

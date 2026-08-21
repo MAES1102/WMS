@@ -1,1 +1,1 @@
-"""Persistence adapters for the v3 invoice workflow."""
+"""Persistence adapters for the invoice workflow."""

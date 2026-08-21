@@ -8,7 +8,7 @@ from pypdf import PdfWriter
 from sqlalchemy import create_engine, event, func, select
 from sqlalchemy.orm import Session
 
-from app.db import Base
+from app.persistence.database import Base
 from app.domain.approval import ApprovalChoice, ApprovalDecisionInput
 from app.domain.types import ExecutionMode
 from app.application.invoice_validation import MAX_PDF_BYTES
@@ -28,7 +28,7 @@ from app.persistence.models import (
 from app.persistence.orchestration import SqlAlchemyInvoiceRunQueryService
 from tests.persistence.test_invoice_orchestration import (
     TickingClock,
-    V3_TABLES,
+    INVOICE_TABLES,
     _normalized_scenario_result,
     compose,
     create_reference_revision,
@@ -186,7 +186,7 @@ def test_waiting_run_survives_restart_and_resumes_original_state(
     database = tmp_path / f"restart-{mode.value}.db"
     storage = LocalDocumentStorage(tmp_path / f"documents-{mode.value}")
     engine = persistent_engine(database)
-    Base.metadata.create_all(engine, tables=V3_TABLES)
+    Base.metadata.create_all(engine, tables=INVOICE_TABLES)
 
     with Session(engine) as first_session:
         _validate, _review, archive, _notify = create_reference_revision(
@@ -278,7 +278,7 @@ def test_two_interleaved_runs_preserve_state_partition(
 ) -> None:
     engine = persistent_engine(tmp_path / f"concurrent-{mode.value}.db")
     storage = LocalDocumentStorage(tmp_path / f"concurrent-docs-{mode.value}")
-    Base.metadata.create_all(engine, tables=V3_TABLES)
+    Base.metadata.create_all(engine, tables=INVOICE_TABLES)
     run_ids = ("run-a", "run-b")
     invoice_ids = ("invoice-a", "invoice-b")
 

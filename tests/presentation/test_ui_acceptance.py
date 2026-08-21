@@ -95,6 +95,7 @@ def test_primary_status_exposes_user_outcome_before_technical_trace() -> None:
         'id="status-next-action"',
         'id="status-final-result"',
         'id="status-mode"',
+        'id="status-scenario"',
     )
     assert all(field in source for field in required_status_fields)
     assert source.index('id="business-result"') < source.index(
@@ -104,6 +105,9 @@ def test_primary_status_exposes_user_outcome_before_technical_trace() -> None:
     assert '<details class="constructor-details">' in source
     assert '<details class="constructor-details" open>' not in source
     assert "Workflow constructor (advanced)" in source
+    assert 'id="scenario" name="scenario"' in source
+    assert "Archive fails once, then succeeds" in source
+    assert "Archive remains unavailable" in source
     assert "run.invoice_number" in source
     assert "run.supplier_name" in source
 

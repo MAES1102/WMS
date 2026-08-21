@@ -1,58 +1,49 @@
 @startuml
-title Defense Core — Accepted Single-Service Deployment View
+title Invoice Workflow — Single-Service Deployment View
 skinparam shadowing false
 
-node "Operator device" as ClientNode {
+node "User device" as Client {
   artifact "Browser" as Browser
-  artifact "Static UI delivered by application" as StaticUI
 }
 
-node "Application host" as AppHost {
-  node "One FastAPI application process" as FastAPI {
-    component "Presentation boundary" as Presentation
-    component "Application + domain semantics" as Core
-    component "In-memory run-scoped EventBus" as EventBus
-    component "Persistence adapter" as Adapter
+node "Application host" as Host {
+  node "One FastAPI application process" as App {
+    component "HTTP + static UI" as HTTP
+    component "Application/domain modules" as Core
+    component "Run-scoped in-memory EventBus" as EventBus
+    component "Persistence adapters" as Persistence
+    component "Document/PDF adapter" as Documents
+    component "Third-party PDF library" as PdfLib <<library>>
   }
 }
 
-database "Persistent database / storage" as Database
+database "SQLite\ninvoice.db" as Database
+folder "Controlled storage\ninvoice_documents/" as Storage
 
-Browser --> StaticUI : presents
-Browser --> Presentation : client-server requests
-Presentation --> Core : in-process call
-Core --> EventBus : in-process choreography only
-Core --> Adapter : in-process persistence call
-Adapter --> Database : durable definitions, runs, attempts, trace
+Browser --> HTTP : client-server requests
+HTTP --> Core : in-process use cases
+Core --> EventBus : in-process choreography triggers
+Core --> Persistence : transactions and queries
+Core --> Documents : bounded document operations
+Persistence --> Database : definitions, invoices, runs,\napprovals, attempts, notifications, trace
+Documents --> Storage : generated identities only
+Documents --> PdfLib : open/readability/page checks
 
-note right of FastAPI
-Single deployable application.
-Orchestration and choreography run in this process.
-Concrete hosting and configuration are deferred.
+note right of App
+Orchestration and choreography share this process.
+Restart recovery reads persistent cursors.
+EventBus holds no waiting state.
 end note
 
-note bottom of Database
-Persistent storage is required.
-Exact technology configuration, schema,
-volume, and migration are deferred.
+note bottom of Storage
+No original filename selects a path.
+No OCR, AI extraction, or external document service.
 end note
 
-note as Exclusions
-Explicitly absent from the topology:
-- Kafka and ZooKeeper
-- distributed or external broker
-- microservices or distributed execution
-- external business service
-- separate execution-mode services
-end note
+note "Absent: Kafka, ZooKeeper, distributed broker,\nmicroservices, external workflow engine,\npayment/accounting system, external email." as Exclusions
 
 legend
-Status: APPROVED — checkpoint 4 architecture baseline
-Requirements baseline: 6074fd7ef490ea3b08177e7a786035159f39a91c
-Working base: b5c7da9e51382bb418f017790ae944c8dff26a06
-Implementation: NOT STARTED
-Executable verification: NOT STARTED
-Release: NOT SCHEDULED
-Deployment configuration and release work have not started.
+Local start and Docker Compose use the same single-service boundary.
+Runtime files are persistent data and are not tracked by Git.
 endlegend
 @enduml

@@ -1,60 +1,51 @@
 @startuml
-title Defense Core — Accepted Run Lifecycle
+title Invoice Workflow — Run and Approval Lifecycle
 hide empty description
 skinparam shadowing false
 
 state "Definition candidate" as Candidate
-state "Rejected definition\n(no run exists)" as Rejected #LightGray
-state "Run created" as Created
-state "RUNNING" as Running
-state "SUCCESSFUL terminal" as Successful
-state "UNSUCCESSFUL terminal" as Unsuccessful
+state "Rejected definition\n(no active revision/run)" as Rejected #LightGray
+state "RUNNING\nREADY" as Ready
+state "WAITING_FOR_APPROVAL" as Waiting
+state "COMPLETED" as Completed
+state "FAILED" as Failed
 
 [*] --> Candidate
-Candidate --> Rejected : any definition rule invalid
+Candidate --> Rejected : validation violation
 Rejected --> [*]
+Candidate --> Ready : revision active + submission accepted
 
-Candidate --> Created : complete definition valid
-Created --> Running : initial run state and trace committed
+Ready --> Waiting : pending work item + waiting trace committed
+Waiting --> Ready : first valid decision + resume cursor committed
+Ready --> Completed : handled terminal result committed
+Ready --> Failed : unhandled unsuccessful terminal committed
 
-Running --> Running : attempt outcome persisted
-Running --> Running : retry persisted; same task; no edge
-Running --> Running : transition persisted; advance selected task
-Running --> Successful : final SUCCESS; no eligible transition
-Running --> Unsuccessful : final FAILURE; no eligible transition
+Completed --> [*]
+Failed --> [*]
 
-Successful --> [*] : terminal trace committed; cleanup complete
-Unsuccessful --> [*] : terminal trace committed; cleanup complete
-
-note right of Rejected
-This is a validation outcome,
-not a persisted workflow-run state.
-No execution state is created.
+note right of Waiting
+No active EventBus subscriber.
+State survives restart.
+Human decision is never retried.
+Identical replay changes nothing;
+a conflicting later decision is rejected.
 end note
 
-note right of Running
-All attempts, retries, selected transitions,
-trace positions, and terminal decisions
-are scoped to exactly one run.
+note right of Ready
+Cursor state version prevents
+concurrent double advancement.
+Retry commits an attempt and keeps the cursor READY.
+A selected transition advances the cursor.
 end note
 
-note bottom of Successful
-Choreography terminal path removes
-its run-scoped subscription.
-end note
-
-note bottom of Unsuccessful
-Choreography terminal path removes
-its run-scoped subscription.
+note bottom of Completed
+Business result may be ARCHIVED,
+REJECTED, VALIDATION_FAILED,
+or NEEDS_MANUAL_ACTION.
 end note
 
 legend
-Status: APPROVED — checkpoint 4 architecture baseline
-Requirements baseline: 6074fd7ef490ea3b08177e7a786035159f39a91c
-Working base: b5c7da9e51382bb418f017790ae944c8dff26a06
-Implementation: NOT STARTED
-Executable verification: NOT STARTED
-Release: NOT SCHEDULED
-State names are conceptual; exact persisted values are deferred.
+Run state and invoice business state are separate.
+Every transition commits its trace observation in the same unit of work.
 endlegend
 @enduml

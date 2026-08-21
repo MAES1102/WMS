@@ -7,7 +7,7 @@ from sqlalchemy import create_engine, event, func, select
 from sqlalchemy.orm import Session
 from sqlalchemy.pool import StaticPool
 
-from app.db import Base
+from app.persistence.database import Base
 from app.application.approval import HumanApprovalService
 from app.application.choreography import InvoiceChoreographer
 from app.application.executors import (
@@ -454,7 +454,7 @@ def test_s5_exhausted_archive_routes_to_manual_action_and_notification(
     assert db.scalar(select(func.count()).select_from(InternalNotification)) == 1
 
 
-V3_TABLES = tuple(
+INVOICE_TABLES = tuple(
     table
     for table in Base.metadata.sorted_tables
     if table.name.startswith("invoice_") or table.name == "invoices"
@@ -472,7 +472,7 @@ def _normalized_scenario_result(mode: ExecutionMode, scenario: str, root) -> tup
     def _enable_foreign_keys(dbapi_connection, _connection_record) -> None:
         dbapi_connection.execute("PRAGMA foreign_keys=ON")
 
-    Base.metadata.create_all(engine, tables=V3_TABLES)
+    Base.metadata.create_all(engine, tables=INVOICE_TABLES)
     with Session(engine) as session:
         _validate, _review, archive, _notify = create_reference_revision(session)
         clock = TickingClock()
