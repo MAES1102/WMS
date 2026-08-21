@@ -1,12 +1,12 @@
 @startuml
-title Invoice Workflow — Orchestration with Human Approval
+title Purchase Request Workflow — Orchestration with Human Approval
 autonumber
 skinparam shadowing false
 
 actor Submitter
 actor Approver
 participant "HTTP boundary" as HTTP
-participant "Invoice / approval services" as Service
+participant "Request / approval services" as Service
 participant "Execution coordinator" as Coordinator
 participant "Orchestration strategy" as Orchestrator
 participant "Shared step service" as Step
@@ -15,9 +15,9 @@ participant "Retry policy + resolver" as Policy
 participant "Unit of work" as UoW
 database Database
 
-Submitter -> HTTP : submit PDF + metadata + revision + orchestration
+Submitter -> HTTP : submit structured input + metadata + revision + orchestration
 HTTP -> Service : create submission
-Service -> UoW : commit invoice + run + READY cursor + trace
+Service -> UoW : commit purchase request + run + READY cursor + trace
 UoW -> Database : transaction
 Database --> UoW : committed
 Service -> Coordinator : drive(run identity)
@@ -26,7 +26,7 @@ Coordinator -> Orchestrator : execute from cursor
 loop while cursor is READY
   Orchestrator -> Step : execute current task
   alt HUMAN_APPROVAL
-    Step -> UoW : create/get work item; set invoice/run WAITING; trace
+    Step -> UoW : create/get work item; set purchase request/run WAITING; trace
     UoW -> Database : transaction
     Database --> UoW : committed
     Step --> Orchestrator : waiting
@@ -52,22 +52,22 @@ loop while cursor is READY
 end
 
 Coordinator --> Service : waiting or terminal projection
-Service --> HTTP : invoice/run status
+Service --> HTTP : purchase request/run status
 HTTP --> Submitter : current result
 
 opt run waits for approval
   Approver -> HTTP : approve or reject work item
   HTTP -> Service : decide once
-  Service -> UoW : commit decision + invoice outcome + READY cursor + trace
+  Service -> UoW : commit decision + purchase request outcome + READY cursor + trace
   UoW -> Database : transaction with decision uniqueness check
   Database --> UoW : committed or controlled conflict
   Service -> Coordinator : drive same run identity
   Coordinator -> Orchestrator : resume from persisted cursor
   Orchestrator -> Step : continue shared algorithm to terminal
-  Step -> UoW : commit archive/notification/terminal steps
+  Step -> UoW : commit authorization/notification/terminal steps
   UoW -> Database : transactions
   Database --> UoW : committed
-  Service --> HTTP : final invoice/run projection
+  Service --> HTTP : final purchase request/run projection
   HTTP --> Approver : authoritative decision result
 end
 

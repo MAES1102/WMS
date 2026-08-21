@@ -20,12 +20,12 @@ def test_approve_accepts_optional_bounded_note() -> None:
 
 def test_reject_requires_and_trims_reason() -> None:
     validated = validate_approval_decision(
-        ApprovalDecisionInput(ApprovalChoice.REJECT, reason="  duplicate invoice  ")
+        ApprovalDecisionInput(ApprovalChoice.REJECT, reason="  duplicate purchase_request  ")
     )
 
     assert validated.choice is ApprovalChoice.REJECT
     assert validated.note is None
-    assert validated.reason == "duplicate invoice"
+    assert validated.reason == "duplicate purchase_request"
 
 
 @pytest.mark.parametrize(

@@ -1,22 +1,17 @@
-"""Application service for an initial bounded invoice submission."""
+"""Application service for structured Purchase Request submission."""
 
 from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import UTC, datetime
-from typing import BinaryIO, Protocol
+from typing import Protocol
 from uuid import uuid4
 
-from app.application.document_ports import DocumentStorage
-from app.domain.invoice import RawInvoiceMetadata
+from app.domain.purchase_request import RawPurchaseRequest
 from app.domain.types import DemoScenario, ExecutionMode
 
 
-class SubmissionUnavailable(RuntimeError):
-    pass
-
-
-class SubmissionConflict(RuntimeError):
-    pass
+class SubmissionUnavailable(RuntimeError): pass
+class SubmissionConflict(RuntimeError): pass
 
 
 @dataclass(frozen=True)
@@ -26,113 +21,60 @@ class ActiveWorkflow:
 
 
 @dataclass(frozen=True)
-class InvoiceSubmission:
-    metadata: RawInvoiceMetadata
-    original_filename: str
-    declared_media_type: str
-    document: BinaryIO
-    mode: ExecutionMode
+class PurchaseRequestSubmission:
+    request: RawPurchaseRequest
+    mode: ExecutionMode = ExecutionMode.ORCHESTRATION
     scenario: DemoScenario = DemoScenario.STANDARD
 
 
 @dataclass(frozen=True)
 class CreateSubmission:
-    invoice_id: str
+    purchase_request_id: str
     run_id: str
     revision_id: int
     start_task_id: int
     mode: ExecutionMode
     scenario: DemoScenario
-    metadata: RawInvoiceMetadata
-    document_identity: str
-    original_filename: str
-    declared_media_type: str
-    document_size_bytes: int
-    created_at: datetime
+    request: RawPurchaseRequest
+    submitted_at: datetime
 
 
 @dataclass(frozen=True)
 class SubmissionCreated:
-    invoice_id: str
+    purchase_request_id: str
     run_id: str
     state_version: int
 
 
 class SubmissionUnitOfWork(Protocol):
-    def load_active_workflow(self) -> ActiveWorkflow:
-        """Return the selected active revision and its single start task."""
-
-    def create_submission(self, command: CreateSubmission) -> None:
-        """Atomically create invoice, run, initial cursor, and trace."""
+    def load_active_workflow(self) -> ActiveWorkflow: ...
+    def create_submission(self, command: CreateSubmission) -> None: ...
 
 
-class InvoiceSubmissionService:
-    def __init__(
-        self,
-        unit_of_work: SubmissionUnitOfWork,
-        storage: DocumentStorage,
-        id_factory: Callable[[], str] | None = None,
-        clock: Callable[[], datetime] | None = None,
-    ) -> None:
+class PurchaseRequestSubmissionService:
+    def __init__(self, unit_of_work: SubmissionUnitOfWork, id_factory: Callable[[], str] | None = None, clock: Callable[[], datetime] | None = None) -> None:
         self._unit_of_work = unit_of_work
-        self._storage = storage
         self._id_factory = id_factory or (lambda: str(uuid4()))
         self._clock = clock or (lambda: datetime.now(UTC))
 
-    def submit(self, submission: InvoiceSubmission) -> SubmissionCreated:
-        try:
-            mode = ExecutionMode(submission.mode)
-        except (TypeError, ValueError) as exc:
-            raise ValueError(f"Unsupported execution mode {submission.mode!r}") from exc
-        try:
-            scenario = DemoScenario(submission.scenario)
-        except (TypeError, ValueError) as exc:
-            raise ValueError(
-                f"Unsupported demonstration scenario {submission.scenario!r}"
-            ) from exc
-        if len(submission.original_filename) > 255:
-            raise ValueError("original_filename cannot exceed 255 characters")
-        if not 1 <= len(submission.declared_media_type) <= 100:
-            raise ValueError("declared_media_type length must be between 1 and 100")
-        self._validate_raw_transport_bounds(submission.metadata)
-
+    def submit(self, submission: PurchaseRequestSubmission) -> SubmissionCreated:
+        mode = ExecutionMode(submission.mode)
+        scenario = DemoScenario(submission.scenario)
+        self._validate_transport_bounds(submission.request)
         workflow = self._unit_of_work.load_active_workflow()
-        stored = self._storage.store(submission.document)
-        invoice_id = self._id_factory()
-        run_id = self._id_factory()
         command = CreateSubmission(
-            invoice_id=invoice_id,
-            run_id=run_id,
-            revision_id=workflow.revision_id,
-            start_task_id=workflow.start_task_id,
-            mode=mode,
-            scenario=scenario,
-            metadata=submission.metadata,
-            document_identity=stored.identity,
-            original_filename=submission.original_filename,
-            declared_media_type=submission.declared_media_type,
-            document_size_bytes=stored.size_bytes,
-            created_at=self._clock(),
+            self._id_factory(), self._id_factory(), workflow.revision_id,
+            workflow.start_task_id, mode, scenario, submission.request, self._clock()
         )
-        try:
-            self._unit_of_work.create_submission(command)
-        except BaseException:
-            self._storage.delete(stored.identity)
-            raise
-        return SubmissionCreated(invoice_id, run_id, state_version=1)
+        self._unit_of_work.create_submission(command)
+        return SubmissionCreated(command.purchase_request_id, command.run_id, 1)
 
     @staticmethod
-    def _validate_raw_transport_bounds(metadata: RawInvoiceMetadata) -> None:
-        bounds = {
-            "supplier_name": (metadata.supplier_name, 512),
-            "invoice_number": (metadata.invoice_number, 256),
-            "issue_date": (metadata.issue_date, 32),
-            "amount": (metadata.amount, 32),
-            "currency": (metadata.currency, 16),
-        }
-        for field, (value, maximum) in bounds.items():
-            if not isinstance(value, str) or len(value) > maximum:
-                raise ValueError(
-                    f"{field} raw value must be a string of at most "
-                    f"{maximum} characters"
-                )
+    def _validate_transport_bounds(value: RawPurchaseRequest) -> None:
+        bounds = {"requester_name": 512, "department": 512, "item_or_service": 1024,
+                  "supplier": 512, "amount": 32, "currency": 16,
+                  "business_justification": 2000, "required_date": 32}
+        for field, maximum in bounds.items():
+            raw = getattr(value, field)
+            if not isinstance(raw, str) or len(raw) > maximum:
+                raise ValueError(f"{field} must be text of at most {maximum} characters")

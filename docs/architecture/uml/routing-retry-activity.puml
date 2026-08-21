@@ -1,9 +1,9 @@
 @startuml
-title Invoice Workflow — Shared Task, Retry, Routing, and Waiting Activity
+title Purchase Request Workflow — Shared Task, Retry, Routing, and Waiting Activity
 skinparam shadowing false
 
 start
-:Load immutable revision, invoice,
+:Load immutable revision, purchase request,
 run, and versioned cursor;
 
 if (Cursor phase READY?) then (no)
@@ -14,7 +14,7 @@ endif
 
 if (Current task HUMAN_APPROVAL?) then (yes)
   :Create or get unique pending work item;
-  :Commit invoice/run WAITING state
+  :Commit purchase request/run WAITING state
   and ordered trace;
   :Release choreography subscription if present;
   stop

@@ -11,7 +11,7 @@ RUN pip install --no-cache-dir --requirement requirements.txt
 
 RUN addgroup --system app && adduser --system --ingroup app app
 COPY --chown=app:app app ./app
-RUN mkdir -p /data/documents && chown -R app:app /data
+RUN mkdir -p /data && chown -R app:app /data
 
 USER app
 EXPOSE 8000

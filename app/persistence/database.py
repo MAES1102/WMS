@@ -1,4 +1,4 @@
-"""Shared SQLAlchemy metadata for the invoice application."""
+"""Shared SQLAlchemy metadata for the purchase_request application."""
 
 from sqlalchemy.orm import DeclarativeBase
 

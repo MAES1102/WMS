@@ -109,13 +109,13 @@ class TickingClock:
 def automatic_task(
     task_id: int,
     *,
-    name: str = "Archive invoice",
+    name: str = "Purchase Authorization purchase_request",
     max_attempts: int = 2,
 ) -> TaskDefinition:
     return TaskDefinition(
         id=task_id,
         name=name,
-        task_type=TaskType.ARCHIVE_DOCUMENT,
+        task_type=TaskType.PURCHASE_AUTHORIZATION,
         is_start=task_id == 1,
         max_attempts=max_attempts,
     )
@@ -131,12 +131,12 @@ def notification_task(task_id: int) -> TaskDefinition:
     )
 
 
-def registry_with(archive_executor) -> AutomaticExecutorRegistry:
+def registry_with(authorization_executor) -> AutomaticExecutorRegistry:
     default = RecordingExecutor()
     return AutomaticExecutorRegistry(
         {
-            TaskType.DOCUMENT_VALIDATION: default,
-            TaskType.ARCHIVE_DOCUMENT: archive_executor,
+            TaskType.REQUEST_VALIDATION: default,
+            TaskType.PURCHASE_AUTHORIZATION: authorization_executor,
             TaskType.CREATE_NOTIFICATION: default,
         }
     )
@@ -148,7 +148,7 @@ def ready_step(
 ) -> ReadyAutomaticStep:
     return ReadyAutomaticStep(
         run_id="run-1",
-        invoice_id="invoice-1",
+        purchase_request_id="purchase_request-1",
         task=task,
         transitions=transitions,
         completed_attempts=0,
@@ -159,13 +159,13 @@ def ready_step(
 def test_registry_requires_the_complete_closed_automatic_catalog() -> None:
     executor = RecordingExecutor()
     with pytest.raises(ExecutorRegistryError, match="Missing automatic executors"):
-        AutomaticExecutorRegistry({TaskType.ARCHIVE_DOCUMENT: executor})
+        AutomaticExecutorRegistry({TaskType.PURCHASE_AUTHORIZATION: executor})
 
     with pytest.raises(ExecutorRegistryError, match="not an automatic executor"):
         AutomaticExecutorRegistry(
             {
-                TaskType.DOCUMENT_VALIDATION: executor,
-                TaskType.ARCHIVE_DOCUMENT: executor,
+                TaskType.REQUEST_VALIDATION: executor,
+                TaskType.PURCHASE_AUTHORIZATION: executor,
                 TaskType.CREATE_NOTIFICATION: executor,
                 TaskType.HUMAN_APPROVAL: executor,
             }
@@ -182,18 +182,18 @@ def test_fault_schedule_uses_run_task_and_attempt_not_display_name() -> None:
     first = executor.execute(
         ExecutionContext(
             run_id="run-1",
-            invoice_id="invoice-1",
+            purchase_request_id="purchase_request-1",
             task_id=7,
-            task_type=TaskType.ARCHIVE_DOCUMENT,
+            task_type=TaskType.PURCHASE_AUTHORIZATION,
             attempt_ordinal=1,
         )
     )
     second = executor.execute(
         ExecutionContext(
             run_id="run-1",
-            invoice_id="invoice-1",
+            purchase_request_id="purchase_request-1",
             task_id=7,
-            task_type=TaskType.ARCHIVE_DOCUMENT,
+            task_type=TaskType.PURCHASE_AUTHORIZATION,
             attempt_ordinal=2,
         )
     )
@@ -204,18 +204,18 @@ def test_fault_schedule_uses_run_task_and_attempt_not_display_name() -> None:
 
 
 def test_success_route_commits_attempt_trace_and_selected_transition() -> None:
-    archive = automatic_task(1)
+    authorization = automatic_task(1)
     notify = notification_task(2)
     transition = TransitionDefinition(
         id=11,
-        from_task_id=archive.id,
+        from_task_id=authorization.id,
         to_task_id=notify.id,
         condition=TransitionCondition.SUCCESS,
     )
     executor = RecordingExecutor()
     uow = FakeStepUnitOfWork(
-        ready_step(archive, (transition,)),
-        (archive, notify),
+        ready_step(authorization, (transition,)),
+        (authorization, notify),
     )
     service = AutomaticStepService(uow, registry_with(executor), TickingClock())
 
@@ -233,11 +233,11 @@ def test_success_route_commits_attempt_trace_and_selected_transition() -> None:
 
 
 def test_retry_then_success_repeats_task_without_transition_during_retry() -> None:
-    archive = automatic_task(1, name="Renamed archive step")
+    authorization = automatic_task(1, name="Renamed authorization step")
     notify = notification_task(2)
     transition = TransitionDefinition(
         id=12,
-        from_task_id=archive.id,
+        from_task_id=authorization.id,
         to_task_id=notify.id,
         condition=TransitionCondition.SUCCESS,
     )
@@ -245,19 +245,19 @@ def test_retry_then_success_repeats_task_without_transition_during_retry() -> No
     faulted = DeterministicFaultExecutor(
         wrapped,
         DeterministicFaultSchedule(
-            {FaultKey("run-1", archive.id): (RETRYABLE_FAILURE,)}
+            {FaultKey("run-1", authorization.id): (RETRYABLE_FAILURE,)}
         ),
     )
     uow = FakeStepUnitOfWork(
-        ready_step(archive, (transition,)),
-        (archive, notify),
+        ready_step(authorization, (transition,)),
+        (authorization, notify),
     )
     service = AutomaticStepService(uow, registry_with(faulted), TickingClock())
 
     first = service.execute("run-1", expected_state_version=1)
     second = service.execute("run-1", expected_state_version=2)
 
-    assert first.resolution == RetryCurrentTask(archive.id, 2)
+    assert first.resolution == RetryCurrentTask(authorization.id, 2)
     assert [item.kind for item in uow.commits[0].trace] == [
         TraceKind.ATTEMPT_OUTCOME,
         TraceKind.RETRY_OBSERVATION,
@@ -272,11 +272,11 @@ def test_retry_then_success_repeats_task_without_transition_during_retry() -> No
 
 
 def test_exhausted_retryable_failure_enters_normal_failure_route() -> None:
-    archive = automatic_task(1, max_attempts=2)
+    authorization = automatic_task(1, max_attempts=2)
     notify = notification_task(2)
     failure_transition = TransitionDefinition(
         id=13,
-        from_task_id=archive.id,
+        from_task_id=authorization.id,
         to_task_id=notify.id,
         condition=TransitionCondition.FAILURE,
     )
@@ -284,7 +284,7 @@ def test_exhausted_retryable_failure_enters_normal_failure_route() -> None:
         RecordingExecutor(),
         DeterministicFaultSchedule(
             {
-                FaultKey("run-1", archive.id): (
+                FaultKey("run-1", authorization.id): (
                     RETRYABLE_FAILURE,
                     RETRYABLE_FAILURE,
                 )
@@ -292,8 +292,8 @@ def test_exhausted_retryable_failure_enters_normal_failure_route() -> None:
         ),
     )
     uow = FakeStepUnitOfWork(
-        ready_step(archive, (failure_transition,)),
-        (archive, notify),
+        ready_step(authorization, (failure_transition,)),
+        (authorization, notify),
     )
     service = AutomaticStepService(uow, registry_with(faulted), TickingClock())
 

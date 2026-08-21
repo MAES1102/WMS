@@ -1,1 +1,1 @@
-"""Persistence adapters for the invoice workflow."""
+"""Persistence adapters for the purchase_request workflow."""

@@ -15,8 +15,8 @@ from app.application.approval import (
 )
 from app.application.errors import StateVersionConflict, StepStateError
 from app.application.orchestration import (
-    InvoiceExecutionCoordinator,
-    InvoiceRunQueryService,
+    PurchaseRequestExecutionCoordinator,
+    PurchaseRequestRunQueryService,
 )
 from app.domain.approval import (
     ApprovalDecisionError,
@@ -34,10 +34,10 @@ class ApprovalDecisionPayload(BaseModel):
 def create_approval_router(
     service_dependency: Callable[..., HumanApprovalService],
     query_dependency: Callable[..., ApprovalQueryService],
-    coordinator_dependency: Callable[..., InvoiceExecutionCoordinator] | None = None,
-    run_query_dependency: Callable[..., InvoiceRunQueryService] | None = None,
+    coordinator_dependency: Callable[..., PurchaseRequestExecutionCoordinator] | None = None,
+    run_query_dependency: Callable[..., PurchaseRequestRunQueryService] | None = None,
 ) -> APIRouter:
-    router = APIRouter(prefix="/api/v3/approvals", tags=["approvals"])
+    router = APIRouter(prefix="/api/approvals", tags=["approvals"])
     coordinator_provider = coordinator_dependency or (lambda: None)
     run_query_provider = run_query_dependency or (lambda: None)
 
@@ -62,10 +62,10 @@ def create_approval_router(
         work_item_id: str,
         payload: ApprovalDecisionPayload,
         service: HumanApprovalService = Depends(service_dependency),
-        coordinator: InvoiceExecutionCoordinator | None = Depends(
+        coordinator: PurchaseRequestExecutionCoordinator | None = Depends(
             coordinator_provider
         ),
-        run_queries: InvoiceRunQueryService | None = Depends(
+        run_queries: PurchaseRequestRunQueryService | None = Depends(
             run_query_provider
         ),
     ) -> dict:

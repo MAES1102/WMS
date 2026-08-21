@@ -1,5 +1,5 @@
 @startuml
-title Invoice Workflow — Run and Approval Lifecycle
+title Purchase Request Workflow — Run and Approval Lifecycle
 hide empty description
 skinparam shadowing false
 
@@ -39,13 +39,13 @@ A selected transition advances the cursor.
 end note
 
 note bottom of Completed
-Business result may be ARCHIVED,
+Business result may be AUTHORIZED,
 REJECTED, VALIDATION_FAILED,
 or NEEDS_MANUAL_ACTION.
 end note
 
 legend
-Run state and invoice business state are separate.
+Run state and purchase request business state are separate.
 Every transition commits its trace observation in the same unit of work.
 endlegend
 @enduml

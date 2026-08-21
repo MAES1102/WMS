@@ -1,23 +1,10 @@
 #!/bin/sh
 set -eu
-
-repo_root=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
-pdf_path="$repo_root/output/pdf/invoice-approval-final-report.pdf"
-
-mkdir -p "$repo_root/output/pdf"
-
-TEXINPUTS="$repo_root/docs:" pandoc "$repo_root/docs/FINAL_REPORT.md" \
-  --from markdown+raw_tex \
-  --resource-path="$repo_root/docs:$repo_root" \
-  --pdf-engine=xelatex \
-  --top-level-division=chapter \
-  --variable documentclass=report \
-  --variable papersize=a4 \
-  --variable geometry:margin=18mm \
-  --variable mainfont="DejaVu Sans" \
-  --variable monofont="DejaVu Sans Mono" \
-  --variable colorlinks=true \
-  --variable linkcolor=ForestGreen \
-  --output "$pdf_path"
-
-printf '%s\n' "$pdf_path"
+root=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
+output="$root/output/pdf/event-driven-workflow-management-system.pdf"
+html=$(mktemp /tmp/se-m-report.XXXXXX.html)
+trap 'rm -f "$html"' EXIT
+mkdir -p "$root/output/pdf"
+pandoc "$root/docs/FINAL_REPORT.md" --standalone --embed-resources --resource-path="$root/docs:$root" --metadata pagetitle="Event-Driven Workflow Management System" --output "$html"
+/opt/homebrew/bin/weasyprint "$html" "$output"
+printf '%s\n' "$output"

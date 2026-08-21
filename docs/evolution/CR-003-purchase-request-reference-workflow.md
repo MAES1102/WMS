@@ -1,10 +1,10 @@
-# CR-002 — Invoice Approval Reference Application
+# CR-002 — Purchase Request Approval Reference Application
 
 | Field | Value |
 |---|---|
 | Category | Product-purpose clarification and bounded functional extension |
 | Trigger | Earlier demonstration did not communicate useful product behavior |
-| Decision | Apply the existing workflow core to one Invoice Approval product |
+| Decision | Apply the existing workflow core to one Purchase Request Approval product |
 | Status | Implemented in the project repository |
 | Academic approval | Final acceptance remains the professor's decision |
 
@@ -22,17 +22,17 @@ Student-reported instructor feedback identified this comprehension gap. The priv
 
 Retain the independently implemented workflow capabilities and apply them to a bounded process:
 
-> A submitter uploads an invoice PDF and metadata. The system validates the submission, pauses for a human approve/reject decision, resumes the same persisted run, archives an approved document or records a controlled negative outcome, creates an internal notification, and preserves an audit trace.
+> A submitter uploads an purchase request structured purchase request data. The system validates the submission, pauses for a human approve/reject decision, resumes the same persisted run, authorizations an approved document or records a controlled negative outcome, creates an internal notification, and preserves an audit trace.
 
 Orchestration and choreography remain the two compared control strategies. They are not separate products and they do not own separate business rules.
 
 ## Included scope
 
-- bounded invoice metadata and PDF submission;
-- real metadata and PDF validation without OCR;
+- bounded purchase request metadata and structured input submission;
+- real metadata and structured input validation without OCR;
 - persistent human approval work item and idempotent decision;
 - same-run waiting and resume;
-- archive and internal notification records;
+- authorization and internal notification records;
 - deterministic retry-success and retry-exhaustion demonstrations;
 - ordered audit trace and business-state projection;
 - bounded workflow drafts and immutable activated revisions;
@@ -66,11 +66,11 @@ Camunda, n8n, and Temporal were consulted as behavioral references for human wor
 
 | Scenario | Result |
 |---|---|
-| Valid and approved | Invoice archived and notification created |
-| Valid and rejected | Rejection reason recorded; archive skipped |
-| Invalid metadata/PDF | Validation failure; no approval work item |
-| Temporary archive failure | One bounded retry followed by archive success |
-| Archive unavailable | Attempt bound exhausted; manual action recorded |
+| Valid and approved | Request authorized and notification created |
+| Valid and rejected | Rejection reason recorded; authorization skipped |
+| Invalid metadata/structured input | Validation failure; no approval work item |
+| Temporary authorization failure | One bounded retry followed by authorization success |
+| Authorization unavailable | Attempt bound exhausted; manual action recorded |
 
 Every scenario is verified in both execution modes. The dashboard makes the business state primary and exposes the technical trace only as supporting evidence.
 
@@ -78,9 +78,9 @@ Every scenario is verified in both execution modes. The dashboard makes the busi
 
 | Area | Change |
 |---|---|
-| Requirements | Added invoice, approval, archive, notification, constructor, and UI outcomes |
+| Requirements | Added purchase request, approval, authorization, notification, constructor, and UI outcomes |
 | Architecture | Added executor boundary, persistent cursor/waiting, document adapter, and immutable revisions |
-| Persistence | Added invoice-owned run, work item, attempt, archive, notification, and trace records |
-| UI | Replaced abstract node-first demonstration with invoice submission and status |
-| Verification | Added five paired scenarios, retry, restart, isolation, PDF, constructor, and deployment checks |
+| Persistence | Added purchase request-owned run, work item, attempt, authorization, notification, and trace records |
+| UI | Replaced abstract node-first demonstration with purchase request submission and status |
+| Verification | Added five paired scenarios, retry, restart, isolation, structured input, constructor, and deployment checks |
 | Documentation | Reconciled requirements, ADRs, UML, report, reuse disclosure, and defense script |

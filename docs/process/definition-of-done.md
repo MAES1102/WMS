@@ -29,7 +29,7 @@ A product increment is done only when all applicable checks pass.
 
 - README gives one correct startup and demonstration path.
 - Requirements, traceability, ADRs, UML, process record, report, and defense script agree.
-- The generated PDF builds reproducibly and has been visually inspected.
+- The generated structured input builds reproducibly and has been visually inspected.
 - Reused libraries and behavioral references are disclosed.
 - Limitations and unverified claims are explicit.
 - The repository contains one final product and no obsolete parallel runtime.

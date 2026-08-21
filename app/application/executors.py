@@ -122,8 +122,8 @@ class DeterministicFaultExecutor:
         return self._wrapped.execute(context)
 
 
-class ArchiveDemoFaultExecutor:
-    """Apply one of two explicit archive-failure demonstrations."""
+class AuthorizationDemoFaultExecutor:
+    """Apply one of two explicit authorization-failure demonstrations."""
 
     def __init__(
         self,
@@ -134,12 +134,12 @@ class ArchiveDemoFaultExecutor:
         self._scenario_for_run = scenario_for_run
 
     def execute(self, context: ExecutionContext) -> TaskResult:
-        if context.task_type is not TaskType.ARCHIVE_DOCUMENT:
+        if context.task_type is not TaskType.PURCHASE_AUTHORIZATION:
             raise ValueError(
-                "ArchiveDemoFaultExecutor requires ARCHIVE_DOCUMENT"
+                "AuthorizationDemoFaultExecutor requires PURCHASE_AUTHORIZATION"
             )
         scenario = DemoScenario(self._scenario_for_run(context.run_id))
-        should_fail = scenario is DemoScenario.ARCHIVE_UNAVAILABLE or (
+        should_fail = scenario is DemoScenario.AUTHORIZATION_UNAVAILABLE or (
             scenario is DemoScenario.RETRY_THEN_SUCCESS
             and context.attempt_ordinal == 1
         )
@@ -147,6 +147,6 @@ class ArchiveDemoFaultExecutor:
             return TaskResult(
                 TaskOutcome.FAILURE,
                 FailureClass.RETRYABLE_TECHNICAL,
-                "demonstration: archive storage temporarily unavailable",
+                "demonstration: internal authorization service temporarily unavailable",
             )
         return self._wrapped.execute(context)

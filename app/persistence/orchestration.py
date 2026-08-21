@@ -1,4 +1,4 @@
-"""SQLAlchemy control-state and status projections for invoice orchestration."""
+"""SQLAlchemy control-state and status projections for purchase_request orchestration."""
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session
@@ -7,21 +7,21 @@ from app.application.errors import StepStateError
 from app.application.orchestration import (
     ApprovalResultView,
     CursorPhase,
-    InvoiceRunNotFound,
-    InvoiceRunStatusView,
-    InvoiceTraceView,
+    PurchaseRequestRunNotFound,
+    PurchaseRequestRunStatusView,
+    PurchaseRequestTraceView,
     RunControlState,
 )
 from app.domain.types import DemoScenario, ExecutionMode, TaskType, TerminalDecision
 from app.persistence.models import (
     ApprovalDecision,
     ApprovalWorkItem,
-    ArchiveRecord,
+    PurchaseAuthorization,
     ExecutionCursor,
     InternalNotification,
-    Invoice,
-    InvoiceTraceEntry,
-    InvoiceWorkflowRun,
+    PurchaseRequest,
+    PurchaseRequestTraceEntry,
+    PurchaseRequestWorkflowRun,
     RevisionTask,
 )
 
@@ -31,10 +31,10 @@ class SqlAlchemyRunControlReader:
         self._session = session
 
     def load_control_state(self, run_id: str) -> RunControlState:
-        run = self._session.get(InvoiceWorkflowRun, run_id)
+        run = self._session.get(PurchaseRequestWorkflowRun, run_id)
         cursor = self._session.get(ExecutionCursor, run_id)
         if run is None or cursor is None:
-            raise InvoiceRunNotFound(f"Run {run_id!r} does not exist")
+            raise PurchaseRequestRunNotFound(f"Run {run_id!r} does not exist")
 
         phase = CursorPhase(cursor.phase)
         task_type: TaskType | None = None
@@ -76,18 +76,18 @@ class SqlAlchemyRunControlReader:
         )
 
 
-class SqlAlchemyInvoiceRunQueryService:
+class SqlAlchemyPurchaseRequestRunQueryService:
     def __init__(self, session: Session) -> None:
         self._session = session
 
-    def get(self, run_id: str) -> InvoiceRunStatusView:
-        run = self._session.get(InvoiceWorkflowRun, run_id)
+    def get(self, run_id: str) -> PurchaseRequestRunStatusView:
+        run = self._session.get(PurchaseRequestWorkflowRun, run_id)
         cursor = self._session.get(ExecutionCursor, run_id)
         if run is None or cursor is None:
-            raise InvoiceRunNotFound(f"Run {run_id!r} does not exist")
-        invoice = self._session.get(Invoice, run.invoice_id)
-        if invoice is None:
-            raise StepStateError("Run has no invoice")
+            raise PurchaseRequestRunNotFound(f"Run {run_id!r} does not exist")
+        purchase_request = self._session.get(PurchaseRequest, run.purchase_request_id)
+        if purchase_request is None:
+            raise StepStateError("Run has no purchase_request")
 
         item = self._session.scalars(
             select(ApprovalWorkItem).where(ApprovalWorkItem.run_id == run.id)
@@ -107,8 +107,8 @@ class SqlAlchemyInvoiceRunQueryService:
                     decided_at=decision.decided_at,
                 )
 
-        archive = self._session.scalars(
-            select(ArchiveRecord).where(ArchiveRecord.run_id == run.id)
+        authorization = self._session.scalars(
+            select(PurchaseAuthorization).where(PurchaseAuthorization.run_id == run.id)
         ).one_or_none()
         notification = self._session.scalars(
             select(InternalNotification).where(
@@ -116,27 +116,25 @@ class SqlAlchemyInvoiceRunQueryService:
             )
         ).one_or_none()
         trace_rows = self._session.scalars(
-            select(InvoiceTraceEntry)
-            .where(InvoiceTraceEntry.run_id == run.id)
-            .order_by(InvoiceTraceEntry.position)
+            select(PurchaseRequestTraceEntry)
+            .where(PurchaseRequestTraceEntry.run_id == run.id)
+            .order_by(PurchaseRequestTraceEntry.position)
         ).all()
 
-        return InvoiceRunStatusView(
-            invoice_id=invoice.id,
-            supplier_name=(
-                invoice.supplier_name
-                or invoice.supplier_name_raw.strip()
-                or "Unknown supplier"
-            ),
-            invoice_number=(
-                invoice.invoice_number
-                or invoice.invoice_number_raw.strip()
-                or invoice.id
-            ),
+        return PurchaseRequestRunStatusView(
+            purchase_request_id=purchase_request.id,
+            requester_name=purchase_request.requester_name or purchase_request.requester_name_raw.strip(),
+            department=purchase_request.department or purchase_request.department_raw.strip(),
+            item_or_service=purchase_request.item_or_service or purchase_request.item_or_service_raw.strip(),
+            supplier=purchase_request.supplier or purchase_request.supplier_raw.strip(),
+            amount=format(purchase_request.amount, "f") if purchase_request.amount is not None else purchase_request.amount_raw,
+            currency=purchase_request.currency or purchase_request.currency_raw,
+            business_justification=purchase_request.business_justification or purchase_request.business_justification_raw,
+            required_date=purchase_request.required_date.isoformat() if purchase_request.required_date is not None else purchase_request.required_date_raw,
             run_id=run.id,
             execution_mode=ExecutionMode(run.mode),
             scenario=DemoScenario(run.scenario),
-            invoice_state=invoice.state,
+            purchase_request_state=purchase_request.state,
             run_status=run.status,
             cursor_phase=CursorPhase(cursor.phase),
             state_version=cursor.state_version,
@@ -146,14 +144,14 @@ class SqlAlchemyInvoiceRunQueryService:
                 else None
             ),
             approval=approval,
-            archive_document_identity=(
-                archive.document_identity if archive is not None else None
+            purchase_authorization_code=(
+                authorization.authorization_code if authorization is not None else None
             ),
             notification=(
                 notification.message if notification is not None else None
             ),
             trace=tuple(
-                InvoiceTraceView(
+                PurchaseRequestTraceView(
                     position=row.position,
                     kind=row.observation_kind,
                     task_id=row.task_id,

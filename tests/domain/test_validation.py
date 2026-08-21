@@ -28,9 +28,9 @@ def _definition(*tasks: TaskDefinition) -> WorkflowDefinition:
 
 def test_reference_task_catalog_and_bounds_are_accepted() -> None:
     definition = _definition(
-        TaskDefinition(1, "Validate", TaskType.DOCUMENT_VALIDATION, True, 1),
+        TaskDefinition(1, "Validate", TaskType.REQUEST_VALIDATION, True, 1),
         TaskDefinition(2, "Approve", TaskType.HUMAN_APPROVAL, False, None),
-        TaskDefinition(3, "Archive", TaskType.ARCHIVE_DOCUMENT, False, 2),
+        TaskDefinition(3, "Purchase Authorization", TaskType.PURCHASE_AUTHORIZATION, False, 2),
         TaskDefinition(4, "Notify", TaskType.CREATE_NOTIFICATION, False, 1),
     )
 
@@ -45,7 +45,7 @@ def test_automatic_task_requires_positive_integer_bound(
         TaskDefinition(
             1,
             "Validate",
-            TaskType.DOCUMENT_VALIDATION,
+            TaskType.REQUEST_VALIDATION,
             True,
             max_attempts,  # type: ignore[arg-type]
         )

@@ -25,7 +25,7 @@ def test_retry_requires_retryable_failure_below_bound(
 ) -> None:
     assert (
         should_retry(
-            task_type=TaskType.ARCHIVE_DOCUMENT,
+            task_type=TaskType.PURCHASE_AUTHORIZATION,
             result=result,
             completed_attempts=completed_attempts,
             max_attempts=2,
@@ -49,7 +49,7 @@ def test_completed_attempt_count_must_include_current_attempt(
 ) -> None:
     with pytest.raises(ValueError, match="completed_attempts"):
         should_retry(
-            task_type=TaskType.DOCUMENT_VALIDATION,
+            task_type=TaskType.REQUEST_VALIDATION,
             result=_failure(FailureClass.RETRYABLE_TECHNICAL),
             completed_attempts=completed_attempts,
             max_attempts=2,
@@ -62,7 +62,7 @@ def test_automatic_task_requires_positive_integer_bound(
 ) -> None:
     with pytest.raises(ValueError, match="max_attempts"):
         should_retry(
-            task_type=TaskType.DOCUMENT_VALIDATION,
+            task_type=TaskType.REQUEST_VALIDATION,
             result=_failure(FailureClass.RETRYABLE_TECHNICAL),
             completed_attempts=1,
             max_attempts=max_attempts,  # type: ignore[arg-type]

@@ -1,12 +1,12 @@
 @startuml
-title Invoice Workflow — Choreography with Persistent Waiting
+title Purchase Request Workflow — Choreography with Persistent Waiting
 autonumber
 skinparam shadowing false
 
 actor Submitter
 actor Approver
 participant "HTTP boundary" as HTTP
-participant "Invoice / approval services" as Service
+participant "Request / approval services" as Service
 participant "Execution coordinator" as Coordinator
 participant "Choreography strategy" as Choreography
 participant "Run-scoped EventBus" as EventBus
@@ -15,9 +15,9 @@ participant "Shared step service" as Step
 participant "Unit of work" as UoW
 database Database
 
-Submitter -> HTTP : submit invoice + choreography mode
+Submitter -> HTTP : submit purchase request + choreography mode
 HTTP -> Service : create submission
-Service -> UoW : commit invoice + run + READY cursor + trace
+Service -> UoW : commit purchase request + run + READY cursor + trace
 UoW -> Database : transaction
 Database --> UoW : committed
 Service -> Coordinator : drive(run identity)

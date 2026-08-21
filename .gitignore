@@ -20,7 +20,7 @@ htmlcov/
 *.db
 *.sqlite
 *.sqlite3
-invoice_documents/
+
 
 # Local configuration and secrets
 .env
@@ -38,6 +38,6 @@ invoice_documents/
 # Optional local build tools and scratch material
 node_modules/
 plantuml.jar
-archive/
+historical-scratch/
 *.log
 *.tmp

@@ -47,7 +47,7 @@ class ChoreographyResult:
     terminal_decision: TerminalDecision | None = None
 
 
-class InvoiceChoreographer:
+class PurchaseRequestChoreographer:
     """Advance one run through temporary, run-keyed event reactions."""
 
     def __init__(
@@ -138,7 +138,7 @@ class InvoiceChoreographer:
             raise StepStateError("Control state belongs to a different run")
         if state.mode is not ExecutionMode.CHOREOGRAPHY:
             raise StepStateError(
-                "InvoiceChoreographer can drive only choreography runs"
+                "PurchaseRequestChoreographer can drive only choreography runs"
             )
         if state.state_version < 1:
             raise StepStateError("Control state_version must be positive")

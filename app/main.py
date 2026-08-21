@@ -17,17 +17,17 @@ from app.runtime import (
     get_execution_coordinator,
     get_run_queries,
     get_submission_service,
-    initialize_invoice_runtime,
+    initialize_purchase_request_runtime,
 )
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    initialize_invoice_runtime()
+    initialize_purchase_request_runtime()
     yield
 
 
-app = FastAPI(title="Invoice Workflow Automation", lifespan=lifespan)
+app = FastAPI(title="Event-Driven Workflow Management System", lifespan=lifespan)
 app.include_router(
     create_submission_router(
         get_submission_service,
@@ -49,14 +49,14 @@ app.mount("/static", StaticFiles(directory="app/static"), name="static")
 
 
 @app.get("/ui", include_in_schema=False)
-async def invoice_ui() -> FileResponse:
-    return FileResponse(Path("app/static/invoices.html"))
+async def purchase_request_ui() -> FileResponse:
+    return FileResponse(Path("app/static/index.html"))
 
 
 @app.get("/")
 async def root() -> dict[str, str]:
     return {
-        "message": "Invoice workflow system running",
+        "message": "Event-Driven Workflow Management System running",
         "ui": "/ui",
         "api_docs": "/docs",
     }

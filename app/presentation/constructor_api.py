@@ -71,7 +71,7 @@ class WorkflowDraftPayload(BaseModel):
 def create_constructor_router(
     service_dependency: Callable[..., WorkflowConstructorService],
 ) -> APIRouter:
-    router = APIRouter(prefix="/api/v3/workflows", tags=["workflow constructor"])
+    router = APIRouter(prefix="/api/workflows", tags=["workflow designer"])
 
     @router.get("/drafts")
     def list_drafts(

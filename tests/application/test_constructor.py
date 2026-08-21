@@ -17,9 +17,9 @@ from app.application.constructor import (
 
 def valid_spec() -> WorkflowDraftSpec:
     return WorkflowDraftSpec(
-        "Invoice approval",
+        "PurchaseRequest approval",
         (
-            DraftTaskSpec("validate", "Validate", "DOCUMENT_VALIDATION", True, 1),
+            DraftTaskSpec("validate", "Validate", "REQUEST_VALIDATION", True, 1),
             DraftTaskSpec("review", "Review", "HUMAN_APPROVAL", False, None),
             DraftTaskSpec("notify", "Notify", "CREATE_NOTIFICATION", False, 1),
         ),

@@ -25,19 +25,19 @@ class ExecutionMode(str, Enum):
 
 
 class DemoScenario(str, Enum):
-    """Deterministic archive behavior selectable for demonstrations."""
+    """Deterministic authorization behavior selectable for demonstrations."""
 
     STANDARD = "standard"
     RETRY_THEN_SUCCESS = "retry_then_success"
-    ARCHIVE_UNAVAILABLE = "archive_unavailable"
+    AUTHORIZATION_UNAVAILABLE = "authorization_unavailable"
 
 
 class TaskType(str, Enum):
-    """Closed task catalog for the invoice reference workflow (FR-049)."""
+    """Closed task catalog for the purchase_request reference workflow (FR-049)."""
 
-    DOCUMENT_VALIDATION = "DOCUMENT_VALIDATION"
+    REQUEST_VALIDATION = "REQUEST_VALIDATION"
     HUMAN_APPROVAL = "HUMAN_APPROVAL"
-    ARCHIVE_DOCUMENT = "ARCHIVE_DOCUMENT"
+    PURCHASE_AUTHORIZATION = "PURCHASE_AUTHORIZATION"
     CREATE_NOTIFICATION = "CREATE_NOTIFICATION"
 
     @property

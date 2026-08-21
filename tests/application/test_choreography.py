@@ -2,7 +2,7 @@ from dataclasses import replace
 
 import pytest
 
-from app.application.choreography import InvoiceChoreographer
+from app.application.choreography import PurchaseRequestChoreographer
 from app.application.errors import StateVersionConflict, StepStateError
 from app.application.orchestration import CursorPhase, RunControlState
 from app.domain.types import ExecutionMode, TaskType, TerminalDecision
@@ -76,13 +76,13 @@ def test_events_advance_shared_steps_and_cleanup_at_waiting() -> None:
     approvals = ApprovalWait()
     reader = ScriptedReader(
         [
-            state(CursorPhase.READY, 1, TaskType.DOCUMENT_VALIDATION),
-            state(CursorPhase.READY, 1, TaskType.DOCUMENT_VALIDATION),
+            state(CursorPhase.READY, 1, TaskType.REQUEST_VALIDATION),
+            state(CursorPhase.READY, 1, TaskType.REQUEST_VALIDATION),
             state(CursorPhase.READY, 2, TaskType.HUMAN_APPROVAL),
         ]
     )
 
-    result = InvoiceChoreographer(reader, automatic, approvals, bus).drive("run-1")
+    result = PurchaseRequestChoreographer(reader, automatic, approvals, bus).drive("run-1")
 
     assert automatic.calls == [("run-1", 1)]
     assert approvals.calls == [("run-1", 2)]
@@ -93,7 +93,7 @@ def test_events_advance_shared_steps_and_cleanup_at_waiting() -> None:
 
 def test_terminal_state_opens_no_subscription() -> None:
     bus = InMemoryRunEventBus()
-    result = InvoiceChoreographer(
+    result = PurchaseRequestChoreographer(
         ScriptedReader([state(CursorPhase.TERMINAL, 8)]),
         AutomaticSteps(),
         ApprovalWait(),
@@ -105,9 +105,9 @@ def test_terminal_state_opens_no_subscription() -> None:
 
 
 def test_wrong_mode_version_conflict_and_errors_always_cleanup() -> None:
-    choreography = state(CursorPhase.READY, 1, TaskType.ARCHIVE_DOCUMENT)
+    choreography = state(CursorPhase.READY, 1, TaskType.PURCHASE_AUTHORIZATION)
     with pytest.raises(StepStateError, match="only choreography"):
-        InvoiceChoreographer(
+        PurchaseRequestChoreographer(
             ScriptedReader(
                 [replace(choreography, mode=ExecutionMode.ORCHESTRATION)]
             ),
@@ -118,7 +118,7 @@ def test_wrong_mode_version_conflict_and_errors_always_cleanup() -> None:
 
     bus = InMemoryRunEventBus()
     with pytest.raises(StateVersionConflict, match="Expected state version 1"):
-        InvoiceChoreographer(
+        PurchaseRequestChoreographer(
             ScriptedReader([choreography, replace(choreography, state_version=2)]),
             AutomaticSteps(),
             ApprovalWait(),
@@ -128,7 +128,7 @@ def test_wrong_mode_version_conflict_and_errors_always_cleanup() -> None:
 
     bus = InMemoryRunEventBus()
     with pytest.raises(StepStateError, match="safety bound"):
-        InvoiceChoreographer(
+        PurchaseRequestChoreographer(
             ScriptedReader(
                 [
                     choreography,

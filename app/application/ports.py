@@ -7,7 +7,7 @@ from datetime import datetime
 from enum import Enum
 from typing import Protocol
 
-from app.domain.invoice import InvoiceState, ValidatedInvoiceMetadata
+from app.domain.purchase_request import PurchaseRequestState, ValidatedPurchaseRequest
 from app.domain.types import (
     ResolutionResult,
     TaskDefinition,
@@ -21,7 +21,7 @@ class TraceKind(str, Enum):
     ATTEMPT_OUTCOME = "ATTEMPT_OUTCOME"
     RETRY_OBSERVATION = "RETRY_OBSERVATION"
     TRANSITION_SELECTED = "TRANSITION_SELECTED"
-    INVOICE_STATE_CHANGED = "INVOICE_STATE_CHANGED"
+    WORKFLOW_STATE_CHANGED = "WORKFLOW_STATE_CHANGED"
     WAITING_FOR_APPROVAL = "WAITING_FOR_APPROVAL"
     APPROVAL_DECIDED = "APPROVAL_DECIDED"
     RUN_RESUMED = "RUN_RESUMED"
@@ -35,7 +35,7 @@ class ExecutionContext:
     """Stable executor input; task display names are intentionally absent."""
 
     run_id: str
-    invoice_id: str
+    purchase_request_id: str
     task_id: int
     task_type: TaskType
     attempt_ordinal: int
@@ -47,19 +47,19 @@ class TaskExecutor(Protocol):
 
 
 @dataclass(frozen=True)
-class InvoiceMetadataValidated:
-    metadata: ValidatedInvoiceMetadata
+class PurchaseRequestValidated:
+    request: ValidatedPurchaseRequest
 
 
 @dataclass(frozen=True)
-class InvoiceStateChanged:
-    state: InvoiceState
+class PurchaseRequestStateChanged:
+    state: PurchaseRequestState
     reason: str | None = None
 
 
 @dataclass(frozen=True)
-class ArchiveRecordCreated:
-    document_identity: str
+class PurchaseAuthorizationCreated:
+    authorization_id: str
 
 
 @dataclass(frozen=True)
@@ -68,9 +68,9 @@ class InternalNotificationCreated:
 
 
 StepEffect = (
-    InvoiceMetadataValidated
-    | InvoiceStateChanged
-    | ArchiveRecordCreated
+    PurchaseRequestValidated
+    | PurchaseRequestStateChanged
+    | PurchaseAuthorizationCreated
     | InternalNotificationCreated
 )
 
@@ -88,7 +88,7 @@ class AutomaticStepEffectPolicy(Protocol):
 @dataclass(frozen=True)
 class ReadyAutomaticStep:
     run_id: str
-    invoice_id: str
+    purchase_request_id: str
     task: TaskDefinition
     transitions: tuple[TransitionDefinition, ...]
     completed_attempts: int

@@ -1,29 +1,21 @@
-"""Shared fixtures for integrated invoice-application tests."""
-import os
-from pathlib import Path
-import shutil
+"""Isolated integration fixtures for the final application."""
 
-os.environ.setdefault("INVOICE_DATABASE_URL", "sqlite://")
-os.environ.setdefault("INVOICE_STORAGE_ROOT", "/tmp/wms-invoice-test-documents")
+import os
+os.environ.setdefault("WORKFLOW_DATABASE_URL", "sqlite://")
 
 import pytest
 from fastapi.testclient import TestClient
+
 from app.main import app
-from app.persistence.bootstrap import INVOICE_TABLES
+from app.persistence.bootstrap import WORKFLOW_TABLES
 from app.persistence.database import Base
-from app.runtime import invoice_engine
-
-
-_STORAGE_ROOT = Path(os.environ["INVOICE_STORAGE_ROOT"])
+from app.runtime import purchase_request_engine, purchase_request_event_bus
 
 
 @pytest.fixture()
 def client():
-    """Yield a TestClient backed by a fresh in-memory SQLite database."""
-    Base.metadata.drop_all(bind=invoice_engine, tables=INVOICE_TABLES)
-    shutil.rmtree(_STORAGE_ROOT, ignore_errors=True)
-    _STORAGE_ROOT.mkdir(parents=True)
-    with TestClient(app) as c:
-        yield c
-    Base.metadata.drop_all(bind=invoice_engine, tables=INVOICE_TABLES)
-    shutil.rmtree(_STORAGE_ROOT, ignore_errors=True)
+    Base.metadata.drop_all(bind=purchase_request_engine, tables=WORKFLOW_TABLES)
+    with TestClient(app) as value:
+        yield value
+    Base.metadata.drop_all(bind=purchase_request_engine, tables=WORKFLOW_TABLES)
+    assert purchase_request_event_bus.subscriber_count == 0

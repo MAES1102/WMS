@@ -17,20 +17,20 @@ from app.persistence.models import (
 )
 
 
-INVOICE_TABLES = tuple(
+WORKFLOW_TABLES = tuple(
     table
     for table in Base.metadata.sorted_tables
-    if table.name.startswith("invoice_") or table.name == "invoices"
+    if table.name.startswith("purchase_request_") or table.name == "purchase_requests"
 )
 
 
-def create_invoice_schema(engine: Engine) -> None:
-    """Create the invoice application schema."""
-    Base.metadata.create_all(engine, tables=INVOICE_TABLES)
+def create_purchase_request_schema(engine: Engine) -> None:
+    """Create the purchase_request application schema."""
+    Base.metadata.create_all(engine, tables=WORKFLOW_TABLES)
 
 
 def ensure_reference_workflow(session: Session) -> int:
-    """Create the bounded invoice workflow once and return its revision id."""
+    """Create the bounded purchase_request workflow once and return its revision id."""
     existing = session.scalars(
         select(WorkflowRevision).order_by(WorkflowRevision.id)
     ).first()
@@ -41,7 +41,7 @@ def ensure_reference_workflow(session: Session) -> int:
 
     now = datetime.now(UTC)
     draft = WorkflowDraft(
-        name="Invoice approval",
+        name="Purchase Request Approval",
         created_at=now,
         updated_at=now,
     )
@@ -59,36 +59,36 @@ def ensure_reference_workflow(session: Session) -> int:
     validate = RevisionTask(
         revision_id=revision.id,
         task_key="validate",
-        name="Validate invoice",
-        task_type="DOCUMENT_VALIDATION",
+        name="Validate Purchase Request",
+        task_type="REQUEST_VALIDATION",
         is_start=True,
         max_attempts=1,
     )
     review = RevisionTask(
         revision_id=revision.id,
         task_key="review",
-        name="Review invoice",
+        name="Human Approval",
         task_type="HUMAN_APPROVAL",
         is_start=False,
         max_attempts=None,
     )
-    archive = RevisionTask(
+    authorization = RevisionTask(
         revision_id=revision.id,
-        task_key="archive",
-        name="Archive invoice",
-        task_type="ARCHIVE_DOCUMENT",
+        task_key="authorize",
+        name="Create Purchase Authorization",
+        task_type="PURCHASE_AUTHORIZATION",
         is_start=False,
         max_attempts=2,
     )
     notify = RevisionTask(
         revision_id=revision.id,
         task_key="notify",
-        name="Notify submitter",
+        name="Record Notification",
         task_type="CREATE_NOTIFICATION",
         is_start=False,
         max_attempts=2,
     )
-    session.add_all((validate, review, archive, notify))
+    session.add_all((validate, review, authorization, notify))
     session.flush()
     session.add_all(
         RevisionTransition(
@@ -100,10 +100,10 @@ def ensure_reference_workflow(session: Session) -> int:
         for source, target, condition in (
             (validate, review, "SUCCESS"),
             (validate, notify, "FAILURE"),
-            (review, archive, "SUCCESS"),
+            (review, authorization, "SUCCESS"),
             (review, notify, "FAILURE"),
-            (archive, notify, "SUCCESS"),
-            (archive, notify, "FAILURE"),
+            (authorization, notify, "SUCCESS"),
+            (authorization, notify, "FAILURE"),
         )
     )
     session.flush()

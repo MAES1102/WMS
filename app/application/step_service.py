@@ -12,7 +12,7 @@ from app.application.ports import (
     AutomaticStepUnitOfWork,
     InternalNotificationCreated,
     ExecutionContext,
-    InvoiceStateChanged,
+    PurchaseRequestStateChanged,
     ReadyAutomaticStep,
     RetryCurrentTask,
     StepEffect,
@@ -56,7 +56,7 @@ class AutomaticStepService:
         attempt_ordinal = step.completed_attempts + 1
         context = ExecutionContext(
             run_id=step.run_id,
-            invoice_id=step.invoice_id,
+            purchase_request_id=step.purchase_request_id,
             task_id=step.task.id,
             task_type=step.task.task_type,
             attempt_ordinal=attempt_ordinal,
@@ -177,14 +177,14 @@ class AutomaticStepService:
         ]
         observations.extend(
             TraceObservation(
-                kind=TraceKind.INVOICE_STATE_CHANGED,
+                kind=TraceKind.WORKFLOW_STATE_CHANGED,
                 task_id=task_id,
                 attempt_ordinal=attempt_ordinal,
                 detail=f"state={effect.state.value}"
                 + (f"; reason={effect.reason}" if effect.reason else ""),
             )
             for effect in effects
-            if isinstance(effect, InvoiceStateChanged)
+            if isinstance(effect, PurchaseRequestStateChanged)
         )
         observations.extend(
             TraceObservation(

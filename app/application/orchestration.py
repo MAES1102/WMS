@@ -15,10 +15,10 @@ from app.domain.approval import ApprovalDecisionInput
 from app.domain.types import DemoScenario, ExecutionMode, TaskType, TerminalDecision
 
 if TYPE_CHECKING:
-    from app.application.choreography import ChoreographyResult, InvoiceChoreographer
+    from app.application.choreography import ChoreographyResult, PurchaseRequestChoreographer
 
 
-class InvoiceRunNotFound(LookupError):
+class PurchaseRequestRunNotFound(LookupError):
     pass
 
 
@@ -54,7 +54,7 @@ class OrchestrationResult:
     terminal_decision: TerminalDecision | None = None
 
 
-class InvoiceOrchestrator:
+class PurchaseRequestOrchestrator:
     """Drive one run centrally until persistent waiting or terminal state."""
 
     def __init__(
@@ -124,7 +124,7 @@ class InvoiceOrchestrator:
             raise StepStateError("Control state belongs to a different run")
         if state.mode is not ExecutionMode.ORCHESTRATION:
             raise StepStateError(
-                "InvoiceOrchestrator can drive only orchestration runs"
+                "PurchaseRequestOrchestrator can drive only orchestration runs"
             )
         if state.state_version < 1:
             raise StepStateError("Control state_version must be positive")
@@ -148,14 +148,14 @@ class OrchestratedDecisionResult:
     execution: "OrchestrationResult | ChoreographyResult"
 
 
-class InvoiceExecutionCoordinator:
+class PurchaseRequestExecutionCoordinator:
     """Select the persisted run's control strategy and resume the same run."""
 
     def __init__(
         self,
-        orchestrator: InvoiceOrchestrator,
+        orchestrator: PurchaseRequestOrchestrator,
         approvals: HumanApprovalService,
-        choreographer: "InvoiceChoreographer | None" = None,
+        choreographer: "PurchaseRequestChoreographer | None" = None,
         state_reader: RunControlReader | None = None,
     ) -> None:
         self._orchestrator = orchestrator
@@ -205,7 +205,7 @@ class ApprovalResultView:
 
 
 @dataclass(frozen=True)
-class InvoiceTraceView:
+class PurchaseRequestTraceView:
     position: int
     kind: str
     task_id: int | None
@@ -215,24 +215,30 @@ class InvoiceTraceView:
 
 
 @dataclass(frozen=True)
-class InvoiceRunStatusView:
-    invoice_id: str
-    supplier_name: str
-    invoice_number: str
+class PurchaseRequestRunStatusView:
+    purchase_request_id: str
+    requester_name: str
+    department: str
+    item_or_service: str
+    supplier: str
+    amount: str
+    currency: str
+    business_justification: str
+    required_date: str
     run_id: str
     execution_mode: ExecutionMode
     scenario: DemoScenario
-    invoice_state: str
+    purchase_request_state: str
     run_status: str
     cursor_phase: CursorPhase
     state_version: int
     terminal_decision: TerminalDecision | None
     approval: ApprovalResultView | None
-    archive_document_identity: str | None
+    purchase_authorization_code: str | None
     notification: str | None
-    trace: tuple[InvoiceTraceView, ...]
+    trace: tuple[PurchaseRequestTraceView, ...]
 
 
-class InvoiceRunQueryService(Protocol):
-    def get(self, run_id: str) -> InvoiceRunStatusView:
+class PurchaseRequestRunQueryService(Protocol):
+    def get(self, run_id: str) -> PurchaseRequestRunStatusView:
         """Return one isolated business/run projection with ordered history."""

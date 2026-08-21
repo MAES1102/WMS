@@ -5,11 +5,10 @@ services:
     ports:
       - "8000:8000"
     environment:
-      INVOICE_DATABASE_URL: sqlite:////data/invoice.db
-      INVOICE_STORAGE_ROOT: /data/documents
+      WORKFLOW_DATABASE_URL: sqlite:////data/workflow.db
     volumes:
-      - invoice_data:/data
+      - workflow_data:/data
     restart: unless-stopped
 
 volumes:
-  invoice_data:
+  workflow_data:

@@ -7,21 +7,21 @@ from sqlalchemy import func, select, update
 from sqlalchemy.orm import Session
 
 from app.application.errors import StateVersionConflict, StepStateError
-from app.application.invoice_validation import (
-    InvoiceValidationInput,
+from app.application.purchase_request_validation import (
+    PurchaseRequestValidationInput,
 )
-from app.application.invoice_tasks import InvoiceBusinessSnapshot
+from app.application.purchase_request_tasks import PurchaseRequestBusinessSnapshot
 from app.application.ports import (
-    ArchiveRecordCreated,
+    PurchaseAuthorizationCreated,
     AutomaticStepCommit,
     ExecutionContext,
     InternalNotificationCreated,
-    InvoiceMetadataValidated,
-    InvoiceStateChanged,
+    PurchaseRequestValidated,
+    PurchaseRequestStateChanged,
     ReadyAutomaticStep,
     RetryCurrentTask,
 )
-from app.domain.invoice import InvoiceState, RawInvoiceMetadata
+from app.domain.purchase_request import PurchaseRequestState, RawPurchaseRequest
 from app.domain.types import (
     TaskDefinition,
     TaskType,
@@ -32,12 +32,12 @@ from app.domain.types import (
     TransitionSelected,
 )
 from app.persistence.models import (
-    ArchiveRecord,
+    PurchaseAuthorization,
     ExecutionCursor,
-    Invoice,
-    InvoiceTaskAttempt,
-    InvoiceTraceEntry,
-    InvoiceWorkflowRun,
+    PurchaseRequest,
+    PurchaseRequestTaskAttempt,
+    PurchaseRequestTraceEntry,
+    PurchaseRequestWorkflowRun,
     InternalNotification,
     RevisionTask,
     RevisionTransition,
@@ -60,7 +60,7 @@ class SqlAlchemyAutomaticStepUnitOfWork:
         self._id_factory = id_factory or (lambda: str(uuid4()))
 
     def load_ready_step(self, run_id: str) -> ReadyAutomaticStep:
-        run = self._session.get(InvoiceWorkflowRun, run_id)
+        run = self._session.get(PurchaseRequestWorkflowRun, run_id)
         cursor = self._session.get(ExecutionCursor, run_id)
         if run is None or cursor is None:
             raise ReadyStepNotFound(f"Run {run_id!r} has no execution cursor")
@@ -84,15 +84,15 @@ class SqlAlchemyAutomaticStepUnitOfWork:
         ).all()
         completed_attempts = self._session.scalar(
             select(func.count())
-            .select_from(InvoiceTaskAttempt)
+            .select_from(PurchaseRequestTaskAttempt)
             .where(
-                InvoiceTaskAttempt.run_id == run.id,
-                InvoiceTaskAttempt.task_id == task.id,
+                PurchaseRequestTaskAttempt.run_id == run.id,
+                PurchaseRequestTaskAttempt.task_id == task.id,
             )
         )
         return ReadyAutomaticStep(
             run_id=run.id,
-            invoice_id=run.invoice_id,
+            purchase_request_id=run.purchase_request_id,
             task=TaskDefinition(
                 id=task.id,
                 name=task.name,
@@ -113,48 +113,50 @@ class SqlAlchemyAutomaticStepUnitOfWork:
             state_version=cursor.state_version,
         )
 
-    def load(self, context: ExecutionContext) -> InvoiceValidationInput:
-        run = self._session.get(InvoiceWorkflowRun, context.run_id)
-        invoice = self._session.get(Invoice, context.invoice_id)
-        if run is None or invoice is None or run.invoice_id != invoice.id:
+    def load(self, context: ExecutionContext) -> PurchaseRequestValidationInput:
+        run = self._session.get(PurchaseRequestWorkflowRun, context.run_id)
+        purchase_request = self._session.get(PurchaseRequest, context.purchase_request_id)
+        if run is None or purchase_request is None or run.purchase_request_id != purchase_request.id:
             raise ReadyStepNotFound(
-                "Validation context does not identify one persisted invoice run"
+                "Validation context does not identify one persisted purchase_request run"
             )
         cursor = self._session.get(ExecutionCursor, context.run_id)
         if cursor is None or cursor.current_task_id != context.task_id:
             raise StepStateError("Validation context is not the current cursor task")
-        return InvoiceValidationInput(
-            metadata=RawInvoiceMetadata(
-                supplier_name=invoice.supplier_name_raw,
-                invoice_number=invoice.invoice_number_raw,
-                issue_date=invoice.issue_date_raw,
-                amount=invoice.amount_raw,
-                currency=invoice.currency_raw,
+        return PurchaseRequestValidationInput(
+            request=RawPurchaseRequest(
+                requester_name=purchase_request.requester_name_raw,
+                department=purchase_request.department_raw,
+                item_or_service=purchase_request.item_or_service_raw,
+                supplier=purchase_request.supplier_raw,
+                amount=purchase_request.amount_raw,
+                currency=purchase_request.currency_raw,
+                business_justification=purchase_request.business_justification_raw,
+                required_date=purchase_request.required_date_raw,
             ),
-            document_identity=invoice.document_identity,
-            declared_media_type=invoice.declared_media_type,
-            document_size_bytes=invoice.document_size_bytes,
+            submitted_on=purchase_request.created_at.date(),
         )
 
-    def load_business(self, context: ExecutionContext) -> InvoiceBusinessSnapshot:
-        run = self._session.get(InvoiceWorkflowRun, context.run_id)
-        invoice = self._session.get(Invoice, context.invoice_id)
+    def load_business(self, context: ExecutionContext) -> PurchaseRequestBusinessSnapshot:
+        run = self._session.get(PurchaseRequestWorkflowRun, context.run_id)
+        purchase_request = self._session.get(PurchaseRequest, context.purchase_request_id)
         cursor = self._session.get(ExecutionCursor, context.run_id)
         if (
             run is None
-            or invoice is None
+            or purchase_request is None
             or cursor is None
-            or run.invoice_id != invoice.id
+            or run.purchase_request_id != purchase_request.id
             or cursor.phase != "READY"
             or cursor.current_task_id != context.task_id
         ):
             raise StepStateError(
-                "Business task context does not match one ready invoice run"
+                "Business task context does not match one ready purchase_request run"
             )
-        return InvoiceBusinessSnapshot(
-            invoice_state=InvoiceState(invoice.state),
-            document_identity=invoice.document_identity,
-            invoice_number=invoice.invoice_number,
+        return PurchaseRequestBusinessSnapshot(
+            state=PurchaseRequestState(purchase_request.state),
+            item_or_service=purchase_request.item_or_service,
+            amount=format(purchase_request.amount, "f") if purchase_request.amount is not None else purchase_request.amount_raw,
+            currency=purchase_request.currency or purchase_request.currency_raw,
         )
 
     def commit_automatic_step(self, command: AutomaticStepCommit) -> None:
@@ -168,7 +170,7 @@ class SqlAlchemyAutomaticStepUnitOfWork:
     def _commit_automatic_step(self, command: AutomaticStepCommit) -> None:
         if command.next_state_version != command.expected_state_version + 1:
             raise StepStateError("Automatic step must advance state_version by one")
-        run = self._session.get(InvoiceWorkflowRun, command.run_id)
+        run = self._session.get(PurchaseRequestWorkflowRun, command.run_id)
         cursor = self._session.get(ExecutionCursor, command.run_id)
         if run is None or cursor is None:
             raise ReadyStepNotFound(f"Run {command.run_id!r} does not exist")
@@ -179,20 +181,20 @@ class SqlAlchemyAutomaticStepUnitOfWork:
             raise StepStateError("Automatic step no longer matches the ready cursor")
 
         task = self._session.get(RevisionTask, command.task_id)
-        invoice = self._session.get(Invoice, run.invoice_id)
+        purchase_request = self._session.get(PurchaseRequest, run.purchase_request_id)
         if (
             task is None
-            or invoice is None
+            or purchase_request is None
             or task.revision_id != run.revision_id
         ):
             raise StepStateError("Automatic step crosses its run revision boundary")
         completed_attempts = int(
             self._session.scalar(
                 select(func.count())
-                .select_from(InvoiceTaskAttempt)
+                .select_from(PurchaseRequestTaskAttempt)
                 .where(
-                    InvoiceTaskAttempt.run_id == run.id,
-                    InvoiceTaskAttempt.task_id == task.id,
+                    PurchaseRequestTaskAttempt.run_id == run.id,
+                    PurchaseRequestTaskAttempt.task_id == task.id,
                 )
             )
             or 0
@@ -228,7 +230,7 @@ class SqlAlchemyAutomaticStepUnitOfWork:
             )
 
         self._session.add(
-            InvoiceTaskAttempt(
+            PurchaseRequestTaskAttempt(
                 run_id=command.run_id,
                 task_id=command.task_id,
                 attempt_ordinal=command.attempt_ordinal,
@@ -243,7 +245,7 @@ class SqlAlchemyAutomaticStepUnitOfWork:
                 finished_at=command.finished_at,
             )
         )
-        self._apply_effects(invoice, run, command)
+        self._apply_effects(purchase_request, run, command)
         self._append_trace(command)
 
         if phase == "TERMINAL":
@@ -256,7 +258,7 @@ class SqlAlchemyAutomaticStepUnitOfWork:
 
     def _next_cursor_values(
         self,
-        run: InvoiceWorkflowRun,
+        run: PurchaseRequestWorkflowRun,
         task: RevisionTask,
         command: AutomaticStepCommit,
     ) -> tuple[int | None, str, str | None]:
@@ -289,40 +291,39 @@ class SqlAlchemyAutomaticStepUnitOfWork:
 
     def _apply_effects(
         self,
-        invoice: Invoice,
-        run: InvoiceWorkflowRun,
+        purchase_request: PurchaseRequest,
+        run: PurchaseRequestWorkflowRun,
         command: AutomaticStepCommit,
     ) -> None:
         for effect in command.effects:
-            if isinstance(effect, InvoiceMetadataValidated):
+            if isinstance(effect, PurchaseRequestValidated):
                 if command.result.outcome.value != "SUCCESS":
                     raise StepStateError(
                         "Validated metadata requires a successful task result"
                     )
-                metadata = effect.metadata
-                invoice.supplier_name = metadata.supplier_name
-                invoice.invoice_number = metadata.invoice_number
-                invoice.issue_date = metadata.issue_date
-                invoice.amount = metadata.amount
-                invoice.currency = metadata.currency
-            elif isinstance(effect, InvoiceStateChanged):
-                invoice.state = effect.state.value
-            elif isinstance(effect, ArchiveRecordCreated):
+                value = effect.request
+                purchase_request.requester_name = value.requester_name
+                purchase_request.department = value.department
+                purchase_request.item_or_service = value.item_or_service
+                purchase_request.supplier = value.supplier
+                purchase_request.amount = value.amount
+                purchase_request.currency = value.currency
+                purchase_request.business_justification = value.business_justification
+                purchase_request.required_date = value.required_date
+            elif isinstance(effect, PurchaseRequestStateChanged):
+                purchase_request.state = effect.state.value
+            elif isinstance(effect, PurchaseAuthorizationCreated):
                 if command.result.outcome.value != "SUCCESS":
                     raise StepStateError(
-                        "Archive record requires a successful task result"
-                    )
-                if effect.document_identity != invoice.document_identity:
-                    raise StepStateError(
-                        "Archive effect changed the controlled document identity"
+                        "Authorization record requires a successful task result"
                     )
                 self._session.add(
-                    ArchiveRecord(
+                    PurchaseAuthorization(
                         id=self._id_factory(),
-                        invoice_id=invoice.id,
+                        purchase_request_id=purchase_request.id,
                         run_id=run.id,
-                        document_identity=effect.document_identity,
-                        archived_at=command.finished_at,
+                        authorization_code=effect.authorization_id,
+                        authorized_at=command.finished_at,
                     )
                 )
             elif isinstance(effect, InternalNotificationCreated):
@@ -333,7 +334,7 @@ class SqlAlchemyAutomaticStepUnitOfWork:
                 self._session.add(
                     InternalNotification(
                         id=self._id_factory(),
-                        invoice_id=invoice.id,
+                        purchase_request_id=purchase_request.id,
                         run_id=run.id,
                         message=effect.message,
                         created_at=command.finished_at,
@@ -345,13 +346,13 @@ class SqlAlchemyAutomaticStepUnitOfWork:
     def _append_trace(self, command: AutomaticStepCommit) -> None:
         last_position = int(
             self._session.scalar(
-                select(func.max(InvoiceTraceEntry.position)).where(
-                    InvoiceTraceEntry.run_id == command.run_id
+                select(func.max(PurchaseRequestTraceEntry.position)).where(
+                    PurchaseRequestTraceEntry.run_id == command.run_id
                 )
             )
             or 0
         )
-        entries: list[InvoiceTraceEntry] = []
+        entries: list[PurchaseRequestTraceEntry] = []
         for offset, observation in enumerate(command.trace, start=1):
             if (
                 observation.task_id != command.task_id
@@ -367,7 +368,7 @@ class SqlAlchemyAutomaticStepUnitOfWork:
                     else transition_detail
                 )
             entries.append(
-                InvoiceTraceEntry(
+                PurchaseRequestTraceEntry(
                     run_id=command.run_id,
                     position=last_position + offset,
                     observation_kind=observation.kind.value,

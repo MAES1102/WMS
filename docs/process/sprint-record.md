@@ -22,10 +22,10 @@ The dates are project-record dates. This is a concise reconstruction of the deli
 
 ## Iteration 3 — Product-purpose correction
 
-**Goal:** turn the workflow engine into an understandable Invoice Approval application.
+**Goal:** turn the workflow engine into an understandable Purchase Request Approval application.
 
 - Planning: CR-002, bounded actors, five business scenarios, exclusions, and revised UML.
-- Development: invoice submission, safe document storage, metadata/PDF validation, persistent human work item, approve/reject continuation, archive and notification records.
+- Development: purchase request submission, safe document storage, metadata/structured input validation, persistent human work item, approve/reject continuation, authorization and notification records.
 - Review: approved, rejected, and invalid paths produced business states rather than synthetic node colors.
 - Retrospective: failure behavior needed to be directly selectable and repeatable in the dashboard.
 
@@ -34,15 +34,15 @@ The dates are project-record dates. This is a concise reconstruction of the deli
 **Goal:** show controlled configurability and verify recovery, isolation, and parity.
 
 - Planning: closed constructor catalog, immutable activation, exact scenario evidence.
-- Development: draft CRUD, graph validation feedback, revision snapshots, restart/resume, status projection, deterministic archive fault adapter.
-- Review: five scenarios in both modes, duplicate-decision protection, threaded isolation, PDF boundaries, exact traces, and restart checks.
-- Retrospective: advanced configuration and technical trace must remain secondary to invoice status.
+- Development: draft CRUD, graph validation feedback, revision snapshots, restart/resume, status projection, deterministic authorization fault adapter.
+- Review: five scenarios in both modes, duplicate-decision protection, threaded isolation, structured input boundaries, exact traces, and restart checks.
+- Retrospective: advanced configuration and technical trace must remain secondary to purchase request status.
 
 ## Iteration 5 — Product consolidation and submission
 
 **Goal:** deliver one clean product, one startup path, and one coherent submission package.
 
 - Planning: remove obsolete prototype files, reconcile documentation, preserve only defensible artifacts.
-- Development: one `app.main` composition root, one `invoice.db`, constrained launcher, five-scenario selector, concise README, synchronized report/UML/process records.
-- Review: full automated suite, whitespace/reference scans, application smoke test, and final PDF visual inspection.
+- Development: one `app.main` composition root, one `purchase request.db`, constrained launcher, five-scenario selector, concise README, synchronized report/UML/process records.
+- Review: full automated suite, whitespace/reference scans, application smoke test, and final structured input visual inspection.
 - Retrospective: reuse is disclosed, scope remains bounded, and production concerns such as authentication or external accounting are left as explicit future work.

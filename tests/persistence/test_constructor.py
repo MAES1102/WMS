@@ -16,22 +16,22 @@ from app.persistence.constructor import SqlAlchemyWorkflowConstructorRepository
 from app.persistence.models import WorkflowRevision
 
 
-def valid_spec(name: str = "Invoice approval") -> WorkflowDraftSpec:
+def valid_spec(name: str = "PurchaseRequest approval") -> WorkflowDraftSpec:
     return WorkflowDraftSpec(
         name,
         (
-            DraftTaskSpec("validate", "Validate", "DOCUMENT_VALIDATION", True, 1),
+            DraftTaskSpec("validate", "Validate", "REQUEST_VALIDATION", True, 1),
             DraftTaskSpec("review", "Review", "HUMAN_APPROVAL", False, None),
-            DraftTaskSpec("archive", "Archive", "ARCHIVE_DOCUMENT", False, 2),
+            DraftTaskSpec("authorization", "Purchase Authorization", "PURCHASE_AUTHORIZATION", False, 2),
             DraftTaskSpec("notify", "Notify", "CREATE_NOTIFICATION", False, 1),
         ),
         (
             DraftTransitionSpec("validate", "review", "SUCCESS"),
             DraftTransitionSpec("validate", "notify", "FAILURE"),
-            DraftTransitionSpec("review", "archive", "SUCCESS"),
+            DraftTransitionSpec("review", "authorization", "SUCCESS"),
             DraftTransitionSpec("review", "notify", "FAILURE"),
-            DraftTransitionSpec("archive", "notify", "SUCCESS"),
-            DraftTransitionSpec("archive", "notify", "FAILURE"),
+            DraftTransitionSpec("authorization", "notify", "SUCCESS"),
+            DraftTransitionSpec("authorization", "notify", "FAILURE"),
         ),
     )
 
@@ -54,9 +54,9 @@ def test_crud_activation_and_revision_history_are_isolated(db) -> None:
     created = service.create_draft(valid_spec())
     revision_one = service.activate_draft(created.id)
     changed_spec = replace(
-        valid_spec("Invoice approval revised"),
+        valid_spec("PurchaseRequest approval revised"),
         tasks=(
-            replace(valid_spec().tasks[0], name="Validate PDF and metadata"),
+            replace(valid_spec().tasks[0], name="Validate Purchase Request"),
         )
         + valid_spec().tasks[1:],
     )
@@ -68,7 +68,7 @@ def test_crud_activation_and_revision_history_are_isolated(db) -> None:
     assert revision_two.revision_number == 2
     assert service.get_revision(revision_one.id).spec.tasks[0].name == "Validate"
     assert service.get_revision(revision_two.id).spec.tasks[0].name == (
-        "Validate PDF and metadata"
+        "Validate Purchase Request"
     )
     assert len(service.list_drafts()) == 1
 

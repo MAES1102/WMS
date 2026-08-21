@@ -1,1 +1,1 @@
-"""Infrastructure adapters for the invoice workflow."""
+"""Infrastructure adapters for the purchase_request workflow."""

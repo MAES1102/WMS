@@ -1,5 +1,5 @@
 @startuml
-title Invoice Workflow — Single-Service Deployment View
+title Purchase Request Workflow — Single-Service Deployment View
 skinparam shadowing false
 
 node "User device" as Client {
@@ -12,20 +12,20 @@ node "Application host" as Host {
     component "Application/domain modules" as Core
     component "Run-scoped in-memory EventBus" as EventBus
     component "Persistence adapters" as Persistence
-    component "Document/PDF adapter" as Documents
-    component "Third-party PDF library" as PdfLib <<library>>
+    component "Document/structured input adapter" as Documents
+    component "Third-party structured input library" as PdfLib <<library>>
   }
 }
 
-database "SQLite\ninvoice.db" as Database
-folder "Controlled storage\ninvoice_documents/" as Storage
+database "SQLite\npurchase request.db" as Database
+folder "Controlled storage\npurchase request_documents/" as Storage
 
 Browser --> HTTP : client-server requests
 HTTP --> Core : in-process use cases
 Core --> EventBus : in-process choreography triggers
 Core --> Persistence : transactions and queries
 Core --> Documents : bounded document operations
-Persistence --> Database : definitions, invoices, runs,\napprovals, attempts, notifications, trace
+Persistence --> Database : definitions, purchase requests, runs,\napprovals, attempts, notifications, trace
 Documents --> Storage : generated identities only
 Documents --> PdfLib : open/readability/page checks
 

@@ -7,8 +7,8 @@ def test_task_catalog_marks_only_human_approval_as_non_automatic() -> None:
     automatic = {task_type for task_type in TaskType if task_type.is_automatic}
 
     assert automatic == {
-        TaskType.DOCUMENT_VALIDATION,
-        TaskType.ARCHIVE_DOCUMENT,
+        TaskType.REQUEST_VALIDATION,
+        TaskType.PURCHASE_AUTHORIZATION,
         TaskType.CREATE_NOTIFICATION,
     }
     assert not TaskType.HUMAN_APPROVAL.is_automatic
@@ -18,7 +18,7 @@ def test_task_result_normalizes_controlled_string_values() -> None:
     result = TaskResult(
         outcome="FAILURE",  # type: ignore[arg-type]
         failure_class="BUSINESS",  # type: ignore[arg-type]
-        reason="invalid invoice amount",
+        reason="invalid purchase_request amount",
     )
 
     assert result.outcome is TaskOutcome.FAILURE

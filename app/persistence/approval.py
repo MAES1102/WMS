@@ -34,9 +34,9 @@ from app.persistence.models import (
     ApprovalDecision as ApprovalDecisionRow,
     ApprovalWorkItem,
     ExecutionCursor,
-    Invoice,
-    InvoiceTraceEntry,
-    InvoiceWorkflowRun,
+    PurchaseRequest,
+    PurchaseRequestTraceEntry,
+    PurchaseRequestWorkflowRun,
     RevisionTask,
     RevisionTransition,
 )
@@ -58,7 +58,7 @@ class SqlAlchemyApprovalUnitOfWork:
         if cursor.phase == "READY":
             return ReadyHumanApproval(
                 run_id=run.id,
-                invoice_id=run.invoice_id,
+                purchase_request_id=run.purchase_request_id,
                 task=self._task_definition(task),
                 transitions=self._transitions(run.revision_id, task.id),
                 state_version=cursor.state_version,
@@ -76,7 +76,7 @@ class SqlAlchemyApprovalUnitOfWork:
                 )
             return WaitingHumanApproval(
                 run_id=run.id,
-                invoice_id=run.invoice_id,
+                purchase_request_id=run.purchase_request_id,
                 task_id=task.id,
                 work_item_id=item.id,
                 state_version=cursor.state_version,
@@ -102,10 +102,10 @@ class SqlAlchemyApprovalUnitOfWork:
             command.next_state_version,
         )
         run, cursor, task = self._load_run_cursor_task(command.run_id)
-        invoice = self._session.get(Invoice, command.invoice_id)
+        purchase_request = self._session.get(PurchaseRequest, command.purchase_request_id)
         if (
-            invoice is None
-            or run.invoice_id != invoice.id
+            purchase_request is None
+            or run.purchase_request_id != purchase_request.id
             or task.id != command.task_id
             or task.task_type != TaskType.HUMAN_APPROVAL.value
         ):
@@ -132,12 +132,12 @@ class SqlAlchemyApprovalUnitOfWork:
             )
 
         run.status = "WAITING_FOR_APPROVAL"
-        invoice.state = "PENDING_APPROVAL"
+        purchase_request.state = "PENDING_APPROVAL"
         self._session.add(
             ApprovalWorkItem(
                 id=command.work_item_id,
                 run_id=run.id,
-                invoice_id=invoice.id,
+                purchase_request_id=purchase_request.id,
                 task_id=task.id,
                 state="PENDING",
                 created_at=command.created_at,
@@ -195,7 +195,7 @@ class SqlAlchemyApprovalUnitOfWork:
             )
         return PendingApprovalDecision(
             run_id=run.id,
-            invoice_id=run.invoice_id,
+            purchase_request_id=run.purchase_request_id,
             task=self._task_definition(task),
             transitions=self._transitions(run.revision_id, task.id),
             work_item_id=item.id,
@@ -225,15 +225,15 @@ class SqlAlchemyApprovalUnitOfWork:
             command.run_id,
             task_id=command.task_id,
         )
-        invoice = self._session.get(Invoice, command.invoice_id)
+        purchase_request = self._session.get(PurchaseRequest, command.purchase_request_id)
         if (
             item is None
-            or invoice is None
+            or purchase_request is None
             or item.state != "PENDING"
             or item.run_id != run.id
-            or item.invoice_id != invoice.id
+            or item.purchase_request_id != purchase_request.id
             or item.task_id != task.id
-            or run.invoice_id != invoice.id
+            or run.purchase_request_id != purchase_request.id
         ):
             raise StepStateError("Decision command crosses its work-item boundary")
 
@@ -269,7 +269,7 @@ class SqlAlchemyApprovalUnitOfWork:
             else "REJECTED"
         )
         item.decided_at = command.decided_at
-        invoice.state = command.invoice_state.value
+        purchase_request.state = command.purchase_request_state.value
         self._session.add(
             ApprovalDecisionRow(
                 id=command.decision_id,
@@ -300,8 +300,8 @@ class SqlAlchemyApprovalUnitOfWork:
         run_id: str,
         *,
         task_id: int | None = None,
-    ) -> tuple[InvoiceWorkflowRun, ExecutionCursor, RevisionTask]:
-        run = self._session.get(InvoiceWorkflowRun, run_id)
+    ) -> tuple[PurchaseRequestWorkflowRun, ExecutionCursor, RevisionTask]:
+        run = self._session.get(PurchaseRequestWorkflowRun, run_id)
         cursor = self._session.get(ExecutionCursor, run_id)
         selected_task_id = task_id or (cursor.current_task_id if cursor else None)
         task = (
@@ -352,7 +352,7 @@ class SqlAlchemyApprovalUnitOfWork:
 
     def _next_cursor_values(
         self,
-        run: InvoiceWorkflowRun,
+        run: PurchaseRequestWorkflowRun,
         task: RevisionTask,
         command: CommitApprovalDecisionCommand,
     ) -> tuple[int | None, str, str | None]:
@@ -384,13 +384,13 @@ class SqlAlchemyApprovalUnitOfWork:
     ) -> None:
         last_position = int(
             self._session.scalar(
-                select(func.max(InvoiceTraceEntry.position)).where(
-                    InvoiceTraceEntry.run_id == run_id
+                select(func.max(PurchaseRequestTraceEntry.position)).where(
+                    PurchaseRequestTraceEntry.run_id == run_id
                 )
             )
             or 0
         )
-        rows: list[InvoiceTraceEntry] = []
+        rows: list[PurchaseRequestTraceEntry] = []
         for offset, observation in enumerate(observations, start=1):
             detail = observation.detail
             if observation.transition_id is not None:
@@ -401,7 +401,7 @@ class SqlAlchemyApprovalUnitOfWork:
                     else transition_detail
                 )
             rows.append(
-                InvoiceTraceEntry(
+                PurchaseRequestTraceEntry(
                     run_id=run_id,
                     position=last_position + offset,
                     observation_kind=observation.kind.value,
@@ -440,31 +440,29 @@ class SqlAlchemyApprovalQueryService:
         return self._view(item)
 
     def _view(self, item: ApprovalWorkItem) -> ApprovalWorkItemView:
-        invoice = self._session.get(Invoice, item.invoice_id)
-        run = self._session.get(InvoiceWorkflowRun, item.run_id)
+        purchase_request = self._session.get(PurchaseRequest, item.purchase_request_id)
+        run = self._session.get(PurchaseRequestWorkflowRun, item.run_id)
         cursor = self._session.get(ExecutionCursor, item.run_id)
-        if invoice is None or run is None or cursor is None:
-            raise StepStateError("Approval item has incomplete invoice/run context")
+        if purchase_request is None or run is None or cursor is None:
+            raise StepStateError("Approval item has incomplete purchase_request/run context")
         return ApprovalWorkItemView(
             work_item_id=item.id,
             run_id=run.id,
-            invoice_id=invoice.id,
-            supplier_name=invoice.supplier_name,
-            invoice_number=invoice.invoice_number,
-            issue_date=(
-                invoice.issue_date.isoformat()
-                if invoice.issue_date is not None
-                else invoice.issue_date_raw
-            ),
+            purchase_request_id=purchase_request.id,
+            requester_name=purchase_request.requester_name,
+            department=purchase_request.department,
+            item_or_service=purchase_request.item_or_service,
+            supplier=purchase_request.supplier,
             amount=(
-                format(invoice.amount, "f")
-                if invoice.amount is not None
-                else invoice.amount_raw
+                format(purchase_request.amount, "f")
+                if purchase_request.amount is not None
+                else purchase_request.amount_raw
             ),
-            currency=invoice.currency or invoice.currency_raw,
-            document_identity=invoice.document_identity,
+            currency=purchase_request.currency or purchase_request.currency_raw,
+            business_justification=purchase_request.business_justification or purchase_request.business_justification_raw,
+            required_date=(purchase_request.required_date.isoformat() if purchase_request.required_date is not None else purchase_request.required_date_raw),
             approval_state=item.state,
-            invoice_state=invoice.state,
+            purchase_request_state=purchase_request.state,
             run_status=run.status,
             state_version=cursor.state_version,
             created_at=item.created_at,

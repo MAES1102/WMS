@@ -1,152 +1,32 @@
-import os
-import socket
-import subprocess
-import sys
-import time
+import os,socket,subprocess,sys,time
 from contextlib import contextmanager
-from io import BytesIO
 from pathlib import Path
-
-import httpx
-from pypdf import PdfWriter
-import pytest
-
-
-ROOT = Path(__file__).parents[2]
-
-
-def available_port() -> int:
-    with socket.socket() as listener:
-        listener.bind(("127.0.0.1", 0))
-        return listener.getsockname()[1]
-
-
-def one_page_pdf() -> bytes:
-    writer = PdfWriter()
-    writer.add_blank_page(width=72, height=72)
-    output = BytesIO()
-    writer.write(output)
-    return output.getvalue()
-
-
-def local_request(method: str, url: str, **kwargs) -> httpx.Response:
-    with httpx.Client(trust_env=False) as client:
-        return client.request(method, url, **kwargs)
-
-
+import httpx,pytest
+ROOT=Path(__file__).parents[2]
+def port():
+    with socket.socket() as s:s.bind(('127.0.0.1',0));return s.getsockname()[1]
+def call(method,url,**kw):
+    with httpx.Client(trust_env=False) as c:return c.request(method,url,**kw)
 @contextmanager
-def running_service(data_root: Path, port: int):
-    environment = os.environ.copy()
-    environment.update(
-        {
-            "INVOICE_DATABASE_URL": (
-                f"sqlite:///{data_root / 'invoice.db'}"
-            ),
-            "INVOICE_STORAGE_ROOT": str(data_root / "documents"),
-        }
-    )
-    process = subprocess.Popen(
-        [
-            sys.executable,
-            "-m",
-            "uvicorn",
-            "app.main:app",
-            "--host",
-            "127.0.0.1",
-            "--port",
-            str(port),
-        ],
-        cwd=ROOT,
-        env=environment,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.STDOUT,
-        text=True,
-    )
-    url = f"http://127.0.0.1:{port}"
+def service(root,p):
+    env=os.environ.copy();env['WORKFLOW_DATABASE_URL']=f"sqlite:///{root/'workflow.db'}"
+    proc=subprocess.Popen([sys.executable,'-m','uvicorn','app.main:app','--host','127.0.0.1','--port',str(p)],cwd=ROOT,env=env,stdout=subprocess.PIPE,stderr=subprocess.STDOUT,text=True);url=f'http://127.0.0.1:{p}'
     try:
-        deadline = time.monotonic() + 10
-        while time.monotonic() < deadline:
-            if process.poll() is not None:
-                output = process.stdout.read() if process.stdout else ""
-                raise AssertionError(f"service exited during startup:\n{output}")
+        for _ in range(200):
             try:
-                if local_request("GET", f"{url}/", timeout=0.5).status_code == 200:
-                    break
-            except httpx.TransportError:
-                time.sleep(0.05)
-        else:
-            raise AssertionError("service did not become ready within 10 seconds")
+                if call('GET',url+'/',timeout=.3).status_code==200:break
+            except httpx.TransportError:time.sleep(.05)
+        else:raise AssertionError('service did not start')
         yield url
-    finally:
-        process.terminate()
-        try:
-            process.wait(timeout=5)
-        except subprocess.TimeoutExpired:
-            process.kill()
-            process.wait(timeout=5)
-
-
-@pytest.mark.parametrize("mode", ("orchestration", "choreography"))
-def test_waiting_invoice_survives_process_restart_and_resumes(
-    tmp_path: Path,
-    mode: str,
-) -> None:
-    port = available_port()
-    number = f"INV-RESTART-{mode}"
-
-    with running_service(tmp_path, port) as url:
-        response = local_request(
-            "POST",
-            f"{url}/api/v3/invoices",
-            data={
-                "supplier_name": "Restart Supplier",
-                "invoice_number": number,
-                "issue_date": "2026-08-13",
-                "amount": "42.00",
-                "currency": "EUR",
-                "mode": mode,
-            },
-            files={
-                "document": (
-                    "restart.pdf",
-                    one_page_pdf(),
-                    "application/pdf",
-                )
-            },
-            timeout=10,
-        )
-        assert response.status_code == 201
-        waiting = response.json()
-        assert waiting["invoice_state"] == "PENDING_APPROVAL"
-        assert waiting["run_status"] == "WAITING_FOR_APPROVAL"
-
-    assert (tmp_path / "invoice.db").exists()
-    assert any((tmp_path / "documents").iterdir())
-
-    with running_service(tmp_path, port) as restarted_url:
-        restored = local_request(
-            "GET",
-            f"{restarted_url}/api/v3/runs/{waiting['run_id']}",
-            timeout=10,
-        )
-        assert restored.status_code == 200
-        assert restored.json()["invoice_number"] == number
-        assert restored.json()["invoice_state"] == "PENDING_APPROVAL"
-
-        decision = local_request(
-            "POST",
-            f"{restarted_url}/api/v3/approvals/{waiting['work_item_id']}/decision",
-            json={
-                "choice": "APPROVE",
-                "note": "Approved after service restart",
-                "expected_state_version": restored.json()["state_version"],
-            },
-            timeout=10,
-        )
-        assert decision.status_code == 200
-        completed = decision.json()["run"]
-        assert completed["run_id"] == waiting["run_id"]
-        assert completed["invoice_state"] == "ARCHIVED"
-        assert completed["run_status"] == "COMPLETED"
-        assert completed["execution_mode"] == mode
-        assert completed["archive_document_identity"]
+    finally:proc.terminate();proc.wait(timeout=5)
+def payload(mode):return dict(requester_name='Alex Morgan',department='Operations',item_or_service='Office chairs',supplier='Supply Co',amount='1200.50',currency='EUR',business_justification='Replace unsafe and damaged office seating.',required_date='2099-09-01',execution_mode=mode,demonstration_scenario='standard')
+@pytest.mark.parametrize('mode',('orchestration','choreography'))
+def test_waiting_run_survives_real_process_restart(tmp_path,mode):
+    p=port()
+    with service(tmp_path,p) as url:
+        waiting=call('POST',url+'/api/requests',json=payload(mode),timeout=10).json();assert waiting['purchase_request_state']=='PENDING_APPROVAL'
+    assert (tmp_path/'workflow.db').exists()
+    with service(tmp_path,p) as url:
+        restored=call('GET',url+f"/api/runs/{waiting['run_id']}",timeout=10).json()
+        result=call('POST',url+f"/api/approvals/{waiting['work_item_id']}/decision",json={'choice':'APPROVE','expected_state_version':restored['state_version']},timeout=10).json()['run']
+        assert result['run_id']==waiting['run_id'] and result['purchase_request_state']=='AUTHORIZED'

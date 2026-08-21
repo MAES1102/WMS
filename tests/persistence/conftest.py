@@ -7,10 +7,10 @@ from app.persistence.database import Base
 from app.persistence import models
 
 
-INVOICE_TABLES = tuple(
+WORKFLOW_TABLES = tuple(
     table
     for table in Base.metadata.sorted_tables
-    if table.name.startswith("invoice_") or table.name == "invoices"
+    if table.name.startswith("purchase_request_") or table.name == "purchase_requests"
 )
 
 
@@ -26,13 +26,13 @@ def db() -> Session:
     def _enable_foreign_keys(dbapi_connection, _connection_record) -> None:
         dbapi_connection.execute("PRAGMA foreign_keys=ON")
 
-    Base.metadata.create_all(engine, tables=INVOICE_TABLES)
+    Base.metadata.create_all(engine, tables=WORKFLOW_TABLES)
     with Session(engine) as session:
         yield session
         session.rollback()
-    Base.metadata.drop_all(engine, tables=INVOICE_TABLES)
+    Base.metadata.drop_all(engine, tables=WORKFLOW_TABLES)
 
 
 @pytest.fixture()
-def invoice_table_names() -> set[str]:
-    return {table.name for table in INVOICE_TABLES}
+def purchase_request_table_names() -> set[str]:
+    return {table.name for table in WORKFLOW_TABLES}

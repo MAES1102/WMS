@@ -14,7 +14,7 @@ from app.domain.approval import (
     ValidatedApprovalDecision,
     validate_approval_decision,
 )
-from app.domain.invoice import InvoiceState
+from app.domain.purchase_request import PurchaseRequestState
 from app.domain.resolver import resolve_transition
 from app.domain.types import (
     ResolutionResult,
@@ -39,7 +39,7 @@ class ApprovalNotFound(LookupError):
 @dataclass(frozen=True)
 class ReadyHumanApproval:
     run_id: str
-    invoice_id: str
+    purchase_request_id: str
     task: TaskDefinition
     transitions: tuple[TransitionDefinition, ...]
     state_version: int
@@ -48,7 +48,7 @@ class ReadyHumanApproval:
 @dataclass(frozen=True)
 class WaitingHumanApproval:
     run_id: str
-    invoice_id: str
+    purchase_request_id: str
     task_id: int
     work_item_id: str
     state_version: int
@@ -60,7 +60,7 @@ HumanApprovalState = ReadyHumanApproval | WaitingHumanApproval
 @dataclass(frozen=True)
 class PendingApprovalDecision:
     run_id: str
-    invoice_id: str
+    purchase_request_id: str
     task: TaskDefinition
     transitions: tuple[TransitionDefinition, ...]
     work_item_id: str
@@ -90,7 +90,7 @@ class ApprovalTraceObservation:
 @dataclass(frozen=True)
 class EnterApprovalWaitCommand:
     run_id: str
-    invoice_id: str
+    purchase_request_id: str
     task_id: int
     work_item_id: str
     expected_state_version: int
@@ -102,13 +102,13 @@ class EnterApprovalWaitCommand:
 @dataclass(frozen=True)
 class CommitApprovalDecisionCommand:
     run_id: str
-    invoice_id: str
+    purchase_request_id: str
     task_id: int
     work_item_id: str
     decision_id: str
     decision: ValidatedApprovalDecision
     outcome: TaskOutcome
-    invoice_state: InvoiceState
+    purchase_request_state: PurchaseRequestState
     resolution: ResolutionResult
     expected_state_version: int
     next_state_version: int
@@ -137,15 +137,17 @@ class ApprovalUnitOfWork(Protocol):
 class ApprovalWorkItemView:
     work_item_id: str
     run_id: str
-    invoice_id: str
-    supplier_name: str | None
-    invoice_number: str | None
-    issue_date: str
+    purchase_request_id: str
+    requester_name: str | None
+    department: str | None
+    item_or_service: str | None
+    supplier: str | None
     amount: str
     currency: str
-    document_identity: str
+    business_justification: str
+    required_date: str
     approval_state: str
-    invoice_state: str
+    purchase_request_state: str
     run_status: str
     state_version: int
     created_at: datetime
@@ -156,7 +158,7 @@ class ApprovalQueryService(Protocol):
         """Return pending work items in stable creation order."""
 
     def get(self, work_item_id: str) -> ApprovalWorkItemView:
-        """Return one work item with invoice and run context."""
+        """Return one work item with purchase_request and run context."""
 
 
 @dataclass(frozen=True)
@@ -217,7 +219,7 @@ class HumanApprovalService:
         work_item_id = self._id_factory()
         command = EnterApprovalWaitCommand(
             run_id=state.run_id,
-            invoice_id=state.invoice_id,
+            purchase_request_id=state.purchase_request_id,
             task_id=state.task.id,
             work_item_id=work_item_id,
             expected_state_version=state.state_version,
@@ -225,9 +227,9 @@ class HumanApprovalService:
             created_at=self._clock(),
             trace=(
                 ApprovalTraceObservation(
-                    TraceKind.INVOICE_STATE_CHANGED,
+                    TraceKind.WORKFLOW_STATE_CHANGED,
                     state.task.id,
-                    f"state={InvoiceState.PENDING_APPROVAL.value}",
+                    f"state={PurchaseRequestState.PENDING_APPROVAL.value}",
                 ),
                 ApprovalTraceObservation(
                     TraceKind.WAITING_FOR_APPROVAL,
@@ -274,10 +276,10 @@ class HumanApprovalService:
             if decision.choice is ApprovalChoice.APPROVE
             else TaskOutcome.FAILURE
         )
-        invoice_state = (
-            InvoiceState.APPROVED
+        purchase_request_state = (
+            PurchaseRequestState.APPROVED
             if outcome is TaskOutcome.SUCCESS
-            else InvoiceState.REJECTED
+            else PurchaseRequestState.REJECTED
         )
         resolution = resolve_transition(
             state.task.id,
@@ -287,13 +289,13 @@ class HumanApprovalService:
         next_version = state.state_version + 1
         command = CommitApprovalDecisionCommand(
             run_id=state.run_id,
-            invoice_id=state.invoice_id,
+            purchase_request_id=state.purchase_request_id,
             task_id=state.task.id,
             work_item_id=state.work_item_id,
             decision_id=self._id_factory(),
             decision=decision,
             outcome=outcome,
-            invoice_state=invoice_state,
+            purchase_request_state=purchase_request_state,
             resolution=resolution,
             expected_state_version=state.state_version,
             next_state_version=next_version,
@@ -302,7 +304,7 @@ class HumanApprovalService:
                 state.task.id,
                 decision,
                 outcome,
-                invoice_state,
+                purchase_request_state,
                 resolution,
             ),
         )
@@ -335,7 +337,7 @@ class HumanApprovalService:
         task_id: int,
         decision: ValidatedApprovalDecision,
         outcome: TaskOutcome,
-        invoice_state: InvoiceState,
+        purchase_request_state: PurchaseRequestState,
         resolution: ResolutionResult,
     ) -> tuple[ApprovalTraceObservation, ...]:
         detail = f"decision={decision.choice.value}; outcome={outcome.value}"
@@ -346,9 +348,9 @@ class HumanApprovalService:
         observations = [
             ApprovalTraceObservation(TraceKind.APPROVAL_DECIDED, task_id, detail),
             ApprovalTraceObservation(
-                TraceKind.INVOICE_STATE_CHANGED,
+                TraceKind.WORKFLOW_STATE_CHANGED,
                 task_id,
-                f"state={invoice_state.value}",
+                f"state={purchase_request_state.value}",
             ),
             ApprovalTraceObservation(TraceKind.RUN_RESUMED, task_id),
         ]

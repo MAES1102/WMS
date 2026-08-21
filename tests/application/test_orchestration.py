@@ -5,7 +5,7 @@ import pytest
 from app.application.errors import StepStateError
 from app.application.orchestration import (
     CursorPhase,
-    InvoiceOrchestrator,
+    PurchaseRequestOrchestrator,
     RunControlState,
 )
 from app.domain.types import ExecutionMode, TaskType, TerminalDecision
@@ -70,14 +70,14 @@ def state(
 def test_central_loop_drives_automatic_steps_then_stops_for_human() -> None:
     reader = ScriptedReader(
         [
-            state(CursorPhase.READY, 1, TaskType.DOCUMENT_VALIDATION),
+            state(CursorPhase.READY, 1, TaskType.REQUEST_VALIDATION),
             state(CursorPhase.READY, 2, TaskType.HUMAN_APPROVAL),
         ]
     )
     automatic = AutomaticSteps()
     approval = ApprovalWait()
 
-    result = InvoiceOrchestrator(reader, automatic, approval).drive("run-1")
+    result = PurchaseRequestOrchestrator(reader, automatic, approval).drive("run-1")
 
     assert automatic.calls == [("run-1", 1)]
     assert approval.calls == [("run-1", 2)]
@@ -89,12 +89,12 @@ def test_central_loop_drives_automatic_steps_then_stops_for_human() -> None:
 def test_terminal_and_existing_waiting_states_do_not_execute_again() -> None:
     automatic = AutomaticSteps()
     approval = ApprovalWait()
-    terminal = InvoiceOrchestrator(
+    terminal = PurchaseRequestOrchestrator(
         ScriptedReader([state(CursorPhase.TERMINAL, 8)]),
         automatic,
         approval,
     ).drive("run-1")
-    waiting = InvoiceOrchestrator(
+    waiting = PurchaseRequestOrchestrator(
         ScriptedReader([state(CursorPhase.WAITING_FOR_APPROVAL, 3)]),
         automatic,
         approval,
@@ -107,15 +107,15 @@ def test_terminal_and_existing_waiting_states_do_not_execute_again() -> None:
 
 
 def test_orchestrator_rejects_other_mode_and_bounds_control_loop() -> None:
-    ready = state(CursorPhase.READY, 1, TaskType.ARCHIVE_DOCUMENT)
+    ready = state(CursorPhase.READY, 1, TaskType.PURCHASE_AUTHORIZATION)
     choreography = replace(ready, mode=ExecutionMode.CHOREOGRAPHY)
     with pytest.raises(StepStateError, match="only orchestration"):
-        InvoiceOrchestrator(
+        PurchaseRequestOrchestrator(
             ScriptedReader([choreography]), AutomaticSteps(), ApprovalWait()
         ).drive("run-1")
 
     with pytest.raises(StepStateError, match="safety bound"):
-        InvoiceOrchestrator(
+        PurchaseRequestOrchestrator(
             ScriptedReader([ready]),
             AutomaticSteps(),
             ApprovalWait(),

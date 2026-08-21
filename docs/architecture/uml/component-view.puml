@@ -1,5 +1,5 @@
 @startuml
-title Invoice Workflow — Component View
+title Purchase Request Workflow — Component View
 skinparam componentStyle rectangle
 skinparam shadowing false
 
@@ -8,7 +8,7 @@ component "Browser UI" as Browser <<presentation>>
 
 node "One FastAPI application" {
   component "HTTP boundary" as HTTP <<presentation>>
-  component "Definition / invoice / approval\napplication services" as Services <<application>>
+  component "Definition / purchase request / approval\napplication services" as Services <<application>>
   component "Execution coordinator" as Coordinator <<application>>
   component "Orchestration strategy" as Orchestration <<application>>
   component "Choreography strategy" as Choreography <<application>>
@@ -17,13 +17,13 @@ node "One FastAPI application" {
   component "Closed executor registry" as Executors <<application>>
   component "Run-scoped EventBus" as EventBus <<infrastructure>>
   component "Repositories / unit of work" as Repositories <<infrastructure>>
-  component "PDF + document adapters" as Documents <<infrastructure>>
-  component "Deterministic archive scenario adapter" as Faults <<application adapter>>
+  component "structured input + document adapters" as Documents <<infrastructure>>
+  component "Deterministic authorization scenario adapter" as Faults <<application adapter>>
 }
 
 database "Persistent database" as Database
 folder "Controlled document storage" as Storage
-component "Selected PDF library" as PdfLib <<third-party library>>
+component "Selected structured input library" as PdfLib <<third-party library>>
 
 Users --> Browser
 Browser --> HTTP

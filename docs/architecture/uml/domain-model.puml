@@ -1,5 +1,5 @@
 @startuml
-title Invoice Workflow — Conceptual Domain Model
+title Purchase Request Workflow — Conceptual Domain Model
 hide methods
 skinparam classAttributeIconSize 0
 skinparam shadowing false
@@ -22,11 +22,11 @@ class "Task Definition" as Task <<immutable definition>> {
 class Transition <<immutable definition>> {
   condition: SUCCESS | FAILURE | ALWAYS
 }
-class Invoice <<business state>> {
+class Request <<business state>> {
   identity
   submitted metadata
   document identity
-  invoice state
+  purchase request state
 }
 class "Workflow Run" as Run <<run state>> {
   identity
@@ -52,7 +52,7 @@ class "Approval Decision" as Decision <<business/run state>> {
   approve or reject
   note or reason
 }
-class "Archive Record" as Archive <<business state>>
+class "Authorization Record" as Authorization <<business state>>
 class "Internal Notification" as Notification <<business state>>
 class "Trace Entry" as Trace <<run state>> {
   run-local position
@@ -65,16 +65,16 @@ Revision "1" *-- "0..*" Transition
 Transition "0..*" --> "1" Task : from
 Transition "0..*" --> "1" Task : to
 Revision "1" <-- "0..*" Run : executes
-Invoice "1" <-- "1" Run : processes
+Request "1" <-- "1" Run : processes
 Run "1" *-- "1" Cursor
 Run "1" *-- "0..*" Attempt
 Task "1" <-- "0..*" Attempt : automatic attempt of
 Run "1" *-- "0..1" WorkItem
-Invoice "1" <-- "0..1" WorkItem
+Request "1" <-- "0..1" WorkItem
 Task "1" <-- "0..*" WorkItem : human task of
 WorkItem "1" *-- "0..1" Decision
-Invoice "1" *-- "0..1" Archive
-Invoice "1" *-- "0..*" Notification
+Request "1" *-- "0..1" Authorization
+Request "1" *-- "0..*" Notification
 Run "1" *-- "1..*" Trace
 
 note right of Revision
@@ -94,6 +94,6 @@ end note
 
 legend
 Conceptual UML omits table/column detail while matching implemented ownership.
-Definition, run, and invoice ownership boundaries are distinct.
+Definition, run, and purchase request ownership boundaries are distinct.
 endlegend
 @enduml
