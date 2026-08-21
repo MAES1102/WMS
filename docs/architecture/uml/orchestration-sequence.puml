@@ -15,7 +15,7 @@ participant "Retry policy + resolver" as Policy
 participant "Unit of work" as UoW
 database Database
 
-Submitter -> HTTP : submit structured input + metadata + revision + orchestration
+Submitter -> HTTP : submit structured purchase data + revision + orchestration
 HTTP -> Service : create submission
 Service -> UoW : commit purchase request + run + READY cursor + trace
 UoW -> Database : transaction

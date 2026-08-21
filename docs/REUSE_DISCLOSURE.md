@@ -12,7 +12,6 @@ This record distinguishes reused general-purpose components, product references,
 | Uvicorn 0.29.0 | ASGI process | Application recovery or business semantics |
 | SQLAlchemy 2.0.36 | ORM and transaction primitives | Persistence model decisions, constraints, run ownership, trace vocabulary |
 | Pydantic 2.10.3 | Boundary data validation | Domain graph validation or purchase request process policy |
-| structured validation 6.x | Structural structured input opening, encryption and page checks | OCR, purchase request interpretation, business validation |
 | pytest 8.3.4 | Automated test runner | Scenario design or expected results |
 | HTTPX 0.28.1 | HTTP test client | Application behavior |
 | SQLite | Local persistent database | Schema and state-machine design |

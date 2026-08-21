@@ -35,8 +35,8 @@ Activate ..> Configure : <<include>>
 Compare ..> Trace : <<include>>
 
 note bottom of Submit
-One bounded structured purchase request data payload.
-No payment, OCR, or external email.
+One bounded structured Purchase Request payload.
+No payment, external extraction, or external email.
 end note
 
 note bottom of Compare

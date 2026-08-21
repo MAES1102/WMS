@@ -5,16 +5,16 @@
 | Document | Requirements — Event-Driven Workflow Management System |
 | Status | `IMPLEMENTED AND VERIFIED` |
 | Version | `3.0` |
-| Source change request | [CR-002](../evolution/CR-002-purchase-request-approval-reference-application.md) |
+| Source change request | [CR-003](../evolution/CR-003-purchase-request-reference-workflow.md) |
 | Draft date | `2026-08-13` |
 | Final verification date | `2026-08-21` |
 | Implementation status | `COMPLETE IN THE PROJECT REPOSITORY` |
 
-CR-002 changed the demonstration from an abstract workflow runner into the bounded purchase-request-approval product described here. This is the current specification. Requirement identifiers retain their historical numbering so code, tests, architecture decisions, and report evidence remain traceable.
+CR-003 records the evolution from an abstract workflow runner, through an intermediate Invoice/PDF direction, to the bounded Purchase Request Approval product described here. Requirement identifiers retain their historical numbering where practical so implementation and evidence remain traceable.
 
 ## 1. Purpose
 
-The system is a workflow-management application demonstrated through one bounded purchase-request-approval use case. A submitter supplies an purchase request structured purchase request data. The system validates the submission, waits for one human decision when validation succeeds, authorizations an approved purchase request or records a controlled non-approved result, creates an internal notification, and preserves an ordered audit trace.
+The system is a workflow-management application demonstrated through one bounded Purchase Request Approval use case. A requester supplies structured purchase information. The system validates the submission, waits for one human decision when validation succeeds, creates an internal Purchase Authorization for an approved request or records a controlled negative result, creates an Internal Notification, and preserves an ordered audit trace.
 
 The same accepted workflow revision is executable through centralized orchestration or run-scoped in-memory choreography. The useful result is purchase request processing; comparison of the two coordination styles is the architectural contribution demonstrated after the user outcome is visible.
 
@@ -22,7 +22,7 @@ The same accepted workflow revision is executable through centralized orchestrat
 
 | Actor | User goal |
 |---|---|
-| Submitter | Submit an purchase request and see its validation, approval, authorization, failure, and notification state. |
+| Requester | Submit a Purchase Request and see its validation, approval, authorization, failure, and notification state. |
 | Approver | See a pending work item, inspect the submitted information, and approve or reject it once. |
 | Workflow operator | Configure and validate a bounded purchase request workflow, select an execution mode, and inspect runs and trace. |
 | Academic evaluator | Follow one understandable purchase request outcome and compare both execution modes using equivalent evidence. |
@@ -35,7 +35,7 @@ The roles are logical demonstration roles. Authentication, authorization, identi
 |---|---|
 | Workflow definition | Reusable graph configuration containing task definitions and directed transitions. |
 | Workflow revision | Immutable accepted snapshot of a workflow definition used by one or more runs. |
-| Automatic task | `DOCUMENT_VALIDATION`, `PURCHASE_AUTHORIZATION`, or `CREATE_NOTIFICATION`; executed by application code. |
+| Automatic task | `REQUEST_VALIDATION`, `PURCHASE_AUTHORIZATION`, or `CREATE_NOTIFICATION`; executed by application code. |
 | Human task | `HUMAN_APPROVAL`; creates a persistent work item and waits for a decision instead of performing an automatic retry loop. |
 | Task outcome | `SUCCESS` or `FAILURE`, passed to the shared transition resolver after retry policy has finished or been bypassed. |
 | Business failure | Expected negative business result, such as invalid input or rejection; it is routed immediately and is not retried. |
@@ -112,9 +112,9 @@ No retired identifier is assigned a different function.
 
 | ID | Atomic normative statement | Verification method | Acceptance condition |
 |---|---|---|---|
-| `FR-031` | The submitter shall be able to create an purchase request submission containing one structured input part and a metadata payload for the fields in section 6. | API/UI acceptance test | A structurally readable request creates one purchase request in `SUBMITTED` state with raw submitted values and a generated identity; business-invalid values remain available to `DOCUMENT_VALIDATION`. |
-| `FR-032` | `DOCUMENT_VALIDATION` shall validate every required metadata field against section 6 before human approval. | Parameterized validation test | Every invalid field produces business `FAILURE` with a field-specific reason and no approval work item is created. |
-| `FR-033` | `DOCUMENT_VALIDATION` shall validate the structured input against section 6 without OCR or purchase request-content extraction. | File-validation test | Supported readable input produces `SUCCESS`; empty, oversized, non-structured input, encrypted, or unreadable input produces business `FAILURE` with a visible reason. |
+| `FR-031` | The requester shall be able to submit the structured Purchase Request fields defined in section 6. | API/UI acceptance test | A syntactically accepted payload creates one request in `SUBMITTED` state and one run. |
+| `FR-032` | `REQUEST_VALIDATION` shall validate every required field against section 6 before human approval. | Parameterized validation test | Every invalid field produces business `FAILURE` with a field-specific reason and no approval work item. |
+| `FR-033` | Request validation shall use structured values only and shall not depend on uploaded files or external services. | Source inspection and connected API test | The request API accepts JSON and the executor invokes domain validation. |
 | `FR-034` | An accepted submission shall start one run linked to the purchase request, selected active workflow revision, and selected execution mode. | Persistence test | The purchase request, run, mode, and revision references are mutually retrievable. |
 | `FR-035` | A validation business failure shall set purchase request state `VALIDATION_FAILED` and shall create no approval work item. | Invalid-submission scenario | The failure route and notification are recorded, with zero approval work items for the run. |
 
@@ -124,7 +124,7 @@ No retired identifier is assigned a different function.
 |---|---|---|---|
 | `FR-036` | Reaching `HUMAN_APPROVAL` shall create exactly one `PENDING` approval work item for the purchase request and run. | Approval-creation test | One pending item exists even if the reach command/event is delivered twice. |
 | `FR-037` | After creating the work item, the system shall set the purchase request to `PENDING_APPROVAL` and the run to `WAITING_FOR_APPROVAL`. | State test | No successor task or terminal decision occurs before a decision is accepted. |
-| `FR-038` | The approver shall be able to list pending work items and inspect the purchase request metadata and document identity for one item. | API/UI inspection | The selected pending item displays the associated purchase request fields and run identity. |
+| `FR-038` | The approver shall be able to list pending work items and inspect meaningful Purchase Request context. | API/UI inspection | The selected item displays associated request fields and run identity. |
 | `FR-039` | The approver shall be able to approve one pending work item with an optional note of at most 500 characters. | Approval test | The item becomes `APPROVED`, purchase request becomes `APPROVED`, and task outcome becomes `SUCCESS`. |
 | `FR-040` | The approver shall be able to reject one pending work item with a trimmed reason of 1–500 characters. | Rejection/boundary test | The item becomes `REJECTED`, purchase request becomes `REJECTED`, and task outcome becomes `FAILURE`; empty or oversized reasons are rejected. |
 | `FR-041` | The first valid decision shall be authoritative; an identical repeat shall be idempotent and a conflicting later decision shall be rejected without state change. | Duplicate/conflict test | One decision record exists, identical replay returns the existing result, and conflicting replay returns a controlled conflict. |
@@ -134,7 +134,7 @@ No retired identifier is assigned a different function.
 
 | ID | Atomic normative statement | Verification method | Acceptance condition |
 |---|---|---|---|
-| `FR-043` | `PURCHASE_AUTHORIZATION` shall preserve the approved document under its generated storage identity, create an authorization record, and set the purchase request to `AUTHORIZED` when execution succeeds. | Approved-purchase request scenario | The authorization record and document identity are retrievable and the state change is persisted before successor dispatch. |
+| `FR-043` | `PURCHASE_AUTHORIZATION` shall create an internal authorization record and set the request to `AUTHORIZED` when execution succeeds. | Approved-request scenario | The authorization identifier and state are retrievable and committed before successor dispatch. |
 | `FR-044` | Exhausted authorization failure shall set the purchase request to `NEEDS_MANUAL_ACTION` before failure routing. | Permanent-failure scenario | Attempts reach the configured bound, purchase request state changes once, and normal failure routing follows. |
 | `FR-045` | The system shall provide explicit deterministic authorization behaviors for normal processing, one retryable failure followed by success, and retry exhaustion, without deriving behavior from task display names. | Adapter, API, and UI scenario tests | The selected behavior is persisted with the run, is repeatable in both modes, and task renaming does not alter routing policy. |
 | `FR-046` | `CREATE_NOTIFICATION` shall persist one internal notification describing the purchase request's final business state or required manual action. | Scenario inspection | One notification exists for each reference scenario after the notification task succeeds. |
@@ -145,7 +145,7 @@ No retired identifier is assigned a different function.
 | ID | Atomic normative statement | Verification method | Acceptance condition |
 |---|---|---|---|
 | `FR-048` | The workflow operator shall be able to create, retrieve, update, and delete draft workflow definitions. | CRUD acceptance test | Each operation affects only the selected draft and returns its current representation. |
-| `FR-049` | The constructor shall allow tasks only from `DOCUMENT_VALIDATION`, `HUMAN_APPROVAL`, `PURCHASE_AUTHORIZATION`, and `CREATE_NOTIFICATION`. | Constructor validation test | Unsupported task types are rejected and no executable code can be supplied. |
+| `FR-049` | The constructor shall allow tasks only from `REQUEST_VALIDATION`, `HUMAN_APPROVAL`, `PURCHASE_AUTHORIZATION`, and `CREATE_NOTIFICATION`. | Constructor validation test | Unsupported task types are rejected and no executable code can be supplied. |
 | `FR-050` | The constructor shall allow task name, task type, one start designation, automatic-task attempt bound, and `SUCCESS`/`FAILURE`/`ALWAYS` transitions to be configured through bounded form controls. | UI/API inspection | A reference workflow can be configured without editing source or submitting scripts. |
 | `FR-051` | The constructor shall visualize the current directed graph and display all definition-validation issues before activation. | UI inspection | Tasks, labeled edges, start designation, and complete validation feedback are visible. |
 | `FR-052` | Activating a valid draft shall create an immutable workflow revision; editing a definition used by a run shall require a new revision. | Revision test | Earlier runs continue to reference unchanged revision content after a later edit. |
@@ -153,27 +153,18 @@ No retired identifier is assigned a different function.
 
 ## 6. Input boundaries
 
-### Request metadata
+### Structured Purchase Request data
 
 | Field | Rule |
 |---|---|
-| `supplier_name` | Required; trimmed length 1–120 characters. |
-| `purchase request_number` | Required; trimmed length 1–64 characters. |
-| `issue_date` | Required; valid ISO calendar date in `YYYY-MM-DD` form. |
-| `amount` | Required decimal greater than `0`, no more than `999999999.99`, and no more than two fractional digits. |
-| `currency` | Required three uppercase ASCII letters. |
-
-### structured input
-
-| Property | Rule |
-|---|---|
-| Count | Exactly one file per purchase request submission. |
-| Size | Greater than zero and no more than 10 MiB (`10,485,760` bytes). |
-| Declared media type | Not applicable; submissions are JSON structured data. |
-| Basic structure | A selected structured input library can open the document and report at least one page. |
-| Rejected content | Encrypted, malformed, empty, unreadable, or non-structured input content. |
-| Storage identity | Generated by the system; an original filename is metadata only and cannot select a storage path. |
-| Extraction | No OCR, AI extraction, or accounting interpretation. |
+| `requester_name` | Required; trimmed length 1-120 characters. |
+| `department` | Required; trimmed length 1-120 characters. |
+| `item_or_service` | Required; trimmed length 1-200 characters. |
+| `supplier` | Required; trimmed length 1-120 characters. |
+| `amount` | Decimal greater than `0`, at most `999999999.99`, with no more than two fractional digits. |
+| `currency` | Exactly three uppercase ASCII letters. |
+| `business_justification` | Trimmed length 20-1000 characters. |
+| `required_date` | Valid `YYYY-MM-DD` date not earlier than the submission date. |
 
 ## 7. Non-functional requirements
 
@@ -184,10 +175,10 @@ No retired identifier is assigned a different function.
 | `NFR-003` | Workflow revisions, purchase requests, runs, attempts, waiting work, decisions, notifications, and trace shall survive a controlled application restart. | Restart-retention test | Pre-restart values are retrievable after restart; a waiting item remains decidable and resumes its original run. |
 | `NFR-004` | Every trace shall be complete for the committed state changes of its run. | Expected-versus-retrieved comparison | No expected observation is absent, duplicated, out of order, or associated with another run. |
 | `NFR-005` | Pre-activation validation shall cover every rule in `FR-002`–`FR-007`, `FR-010`, `FR-021`, and `FR-049`–`FR-052`. | Rule-path inspection and parameterized cases | Every invalid class is rejected without active revision or runtime state; valid boundaries are accepted. |
-| `NFR-006` | The deployed target shall remain one FastAPI application backed by persistent database and controlled document storage. | Deployment inventory | One application service is present; no microservice or broker is required. |
+| `NFR-006` | The deployed target shall remain one FastAPI application backed by one persistent SQLite database. | Deployment inventory | One application service is present; no microservice or broker is required. |
 | `NFR-007` | All sequential, concurrent, duplicate-decision, and resume tests shall preserve purchase request/run isolation. | State-partition comparison | No record contains another case's purchase request or run identity and no state is overwritten across cases. |
-| `NFR-008` | Acceptance execution shall require no random outcome generation, distributed broker, payment/accounting system, OCR/AI service, or external notification provider. | Dependency/source inspection and isolated execution | All ten cases run with local controlled inputs and no prohibited dependency or call. |
-| `NFR-009` | structured input validation shall enforce the complete section 6 boundary before a document reaches human approval. | Boundary and malformed-file suite | Every listed rejected class fails with a controlled reason and creates no approval item. |
+| `NFR-008` | Acceptance execution shall require no random outcome generation, distributed broker, payment/accounting system, content-extraction service, or external notification provider. | Dependency/source inspection and isolated execution | All reference cases run with local controlled inputs and no prohibited dependency or call. |
+| `NFR-009` | Structured field validation shall enforce the complete section 6 boundary before a request reaches human approval. | Boundary suite | Every invalid field class fails with a controlled reason and creates no approval item. |
 | `NFR-010` | On the recorded reference environment, 95 of 100 consecutive reads of purchase request status and trace for a completed reference run shall finish within 1 second each. | Timed local acceptance run with environment recorded | At least 95 measured reads meet the threshold; no external service is used. |
 | `NFR-011` | The primary purchase request-status view shall show purchase request identity, current business state, required next human action when any, final result, and execution mode without requiring raw-trace inspection. | UI content inspection | All five items are visible for the selected purchase request; trace remains available as secondary technical evidence. |
 
@@ -196,14 +187,14 @@ No retired identifier is assigned a different function.
 | ID | Constraint | Verification |
 |---|---|---|
 | `CON-001` | The target is one FastAPI application, not a microservice or distributed-execution system. | Deployment inventory. |
-| `CON-002` | Persistent database and document storage are required; final tables, columns, and paths remain architecture decisions. | Requirements/design boundary inspection. |
+| `CON-002` | Persistent SQLite storage is required; final tables and columns remain architecture decisions. | Requirements/design boundary inspection. |
 | `CON-003` | Choreography uses a run-scoped in-memory EventBus and no Kafka, ZooKeeper, or other broker. | Dependency and deployment inspection. |
 | `CON-004` | Workflow task definitions do not store mutable run, attempt, decision, waiting, purchase request, or terminal state. | Domain and persistence review. |
 | `CON-005` | Product outcomes come from validated input, explicit decisions, and bounded task behavior; verification faults are deterministic and no outcome is random. | Source and fixture inspection. |
 | `CON-006` | Retry does not create or require a graph cycle. | Definition and trace inspection. |
 | `CON-007` | Parallel fork/join execution remains outside scope. | Requirements/design/implementation review. |
 | `CON-008` | Acceptance scenarios make no external business-service calls. | Isolated execution and dependency inspection. |
-| `CON-009` | Authentication, authorization, billing, analytics, external email, payment, accounting integration, OCR, AI extraction, and fraud detection remain outside scope; internal notifications are included. | Scope and dependency inspection. |
+| `CON-009` | Authentication, role authorization, billing, analytics, external email, payment, accounting integration, automated content extraction, and fraud detection remain outside scope; internal notifications are included. | Scope and dependency inspection. |
 | `CON-010` | Requirements do not prescribe final endpoint paths, schema layout, classes, or UML structure. | Document inspection. |
 | `CON-011` | Users cannot upload or enter executable code, scripts, templates with executable expressions, or executor plugins. | Constructor/API negative tests. |
 | `CON-012` | A general BPMN editor, arbitrary drag-and-drop modeler, marketplace, and full low-code platform are outside scope. | UI and scope inspection. |
@@ -216,7 +207,7 @@ The acceptance workflow uses these task definitions:
 
 | Task | Type | Attempt bound |
 |---|---|---|
-| Validate purchase request | `DOCUMENT_VALIDATION` | 1 |
+| Validate Purchase Request | `REQUEST_VALIDATION` | 1 |
 | Review purchase request | `HUMAN_APPROVAL` | Not applicable; human tasks are never automatically retried |
 | Authorization purchase request | `PURCHASE_AUTHORIZATION` | 2 |
 | Notify submitter | `CREATE_NOTIFICATION` | 2 |
@@ -237,11 +228,11 @@ Each scenario shall be executed once in orchestration and once in choreography, 
 |---|---|---|---|
 | `S1 Approved` | Valid structured request data; approver approves; no injected fault | `SUBMITTED → PENDING_APPROVAL → APPROVED → AUTHORIZED`; one final notification; run `COMPLETED` | One wait/resume pair, approval `SUCCESS`, authorization success, zero retries. |
 | `S2 Rejected` | Valid structured request data; approver rejects with reason | `SUBMITTED → PENDING_APPROVAL → REJECTED`; one notification; run `COMPLETED` | One decision, failure route from Review, rejection reason, no automatic retry of the human task. |
-| `S3 Invalid` | Malformed structured input or invalid required metadata | `SUBMITTED → VALIDATION_FAILED`; no approval item; one notification; run `COMPLETED` | Validation business failure, failure route, zero approval/wait observations. |
+| `S3 Invalid` | Invalid required structured field | `SUBMITTED -> VALIDATION_FAILED`; no approval item; one notification; run `COMPLETED` | Validation business failure, failure route, zero approval/wait observations. |
 | `S4 Retry then authorization` | Valid and approved; Authorization receives one injected retryable failure then success | Final purchase request `AUTHORIZED`; one notification; run `COMPLETED` | Two authorization attempts, one retry, no transition during retry, then success route. |
 | `S5 Manual action` | Valid and approved; Authorization receives retryable failures through bound exhaustion | Final purchase request `NEEDS_MANUAL_ACTION`; one notification; run `COMPLETED` after controlled failure handling | Two authorization failures, one retry, failure route after exhaustion, notification of manual action. |
 
-The automated suite executes all five business paths in both modes, compares normalized results, verifies deterministic retry behavior, exercises the constructor boundary, and checks persistence, restart, isolation, structured input safety, trace order, dependencies, deployment inventory, and UI structure.
+The automated suite executes the business paths in both modes, compares normalized results, verifies deterministic retry behavior, exercises the constructor boundary, and checks persistence, restart, isolation, structured validation, trace order, deployment inventory, and UI structure.
 
 ## 10. Review result
 
@@ -259,7 +250,7 @@ Review result: the specification contains 49 functional requirements, 11 non-fun
 
 ## 11. Related records
 
-- [CR-002](../evolution/CR-002-purchase-request-approval-reference-application.md)
+- [CR-003](../evolution/CR-003-purchase-request-reference-workflow.md)
 - [Requirements traceability](./traceability.md)
 - [Product backlog](../process/product-backlog.md)
 - [Risk register](../process/risk-register.md)

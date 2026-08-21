@@ -12,9 +12,9 @@ The identifiers preserve the design history. Together these decisions define the
 
 **Status:** `ACCEPTED AND IMPLEMENTED`
 
-**Context.** requirements adds business data, human waiting, controlled files, and constructor CRUD but still excludes distributed execution and external business dependencies.
+**Context.** The final product adds structured business data, human waiting, and constructor CRUD while excluding distributed execution and external business dependencies.
 
-**Decision.** Retain one FastAPI process with presentation, application, domain, and infrastructure layers. Add cohesive purchase request, approval, definition/revision, execution, and query application services. Dependencies point toward shared domain policy. Database and controlled document storage remain infrastructure boundaries.
+**Decision.** Retain one FastAPI process with presentation, application, domain, and persistence/infrastructure layers. Use cohesive purchase request, approval, definition/revision, execution, and query services. Dependencies point toward shared policy. SQLite is the sole persistent infrastructure boundary.
 
 **Rejected alternatives.** Microservices/broker topology adds unsupported operational complexity; embedding all logic in routes repeats the coupling that made the prototype difficult to evolve; a second purchase request application would split one product into two systems.
 
@@ -33,7 +33,7 @@ The identifiers preserve the design history. Together these decisions define the
 - mutable workflow draft;
 - immutable activated workflow revision containing task/transition snapshots;
 - run-owned execution cursor, attempts, decisions, and trace;
-- purchase request-owned document metadata, business state, approval work item, authorization record, and notification.
+- Purchase Request business state, approval work item, authorization record, and notification.
 
 Every run references one purchase request and one immutable revision. New code never mutates definition-task runtime fields. Earlier runs keep their revision after later draft edits.
 
@@ -109,27 +109,27 @@ EventBus is not an authoritative queue. A missing handler, version conflict, or 
 
 **Context.** Real purchase request inputs and decisions create understandable behavior, while repeatable retry/parity verification still needs controlled technical failures.
 
-**Decision.** Normal product execution uses structured request data, explicit approval decisions, and bounded local task behavior. Test/defense configuration may select a deterministic fault schedule keyed by stable run/task configuration. It wraps the executor port and is never selected by task display name. Both modes use the same schedule. Deployment remains one FastAPI application with database and controlled document storage and no external business service or broker.
+**Decision.** Normal product execution uses structured request data, explicit approval decisions, and bounded local task behavior. Test/defense configuration may select a deterministic fault schedule keyed by stable run/task configuration. It wraps the executor port and is never selected by task display name. Both modes use the same schedule. Deployment remains one FastAPI application with SQLite and no external business service or broker.
 
 **Rejected alternatives.** Random outcomes destroy reproducibility; task-name scenarios prevent safe constructor edits; real third-party failures make acceptance unstable; replacing the engine with Temporal/Camunda/n8n delegates the required custom logic.
 
-**Consequences.** Product value and verification mechanism are clearly separated. Reports must disclose the structured input library and behavioral references without presenting them as custom implementation.
+**Consequences.** Product value and the examination-only fault mechanism are clearly separated. Reports must not present deterministic faults as real third-party behavior.
 
 **Traceability.** `FR-017`, `FR-045`, section 9, `NFR-001`, `NFR-002`, `NFR-008`, CON-005, CON-008, CON-014; RK-007, RK-019, RK-021.
 
-## ADR-008 — Use a bounded structured input/document adapter and generated storage identities
+## ADR-008 — Use a structured Purchase Request boundary
 
 **Status:** `ACCEPTED AND IMPLEMENTED`
 
-**Context.** The product must handle a useful document while excluding OCR, AI extraction, unsafe paths, and unbounded storage input.
+**Context.** The final workflow requires understandable business input without introducing file-processing concerns.
 
-**Decision.** The request boundary enforces a streaming size limit. A document-storage port generates the storage identity; original filename is metadata only. A selected maintained structured input library behind an adapter checks openability, encryption/readability, and page count. Domain validation owns metadata rules. Authorization records reference the generated document identity. Rejected temporary content follows an explicit cleanup path selected during implementation design.
+**Decision.** Accept structured Purchase Request fields through the JSON/form presentation boundary. Domain validation owns required text, length, amount, currency, justification, and required-date rules. The application persists the submitted business values and validation result. Purchase Authorization references the Purchase Request, not an external artifact.
 
-**Rejected alternatives.** Original filenames as paths enable collisions/traversal; reading unbounded files into memory violates the boundary; OCR/AI expands scope and external dependencies; embedding structured input APIs in routes couples infrastructure to use cases.
+**Rejected alternatives.** Uploaded-file processing distracted from workflow-management objectives; arbitrary payload schemas weaken validation; automated content extraction and external procurement data expand scope and dependencies.
 
-**Consequences.** Validation is real but bounded. Library/license selection, malformed-input handling, cleanup, and disposable test storage require evidence.
+**Consequences.** Validation remains real and deterministic while submission, API tests, and defense evidence stay focused on workflow behavior.
 
-**Traceability.** `FR-031`–`FR-035`, `FR-043`, section 6, `NFR-009`, CON-009; RK-020, RK-021.
+**Traceability.** `FR-031`–`FR-035`, `FR-043`, `NFR-009`, CON-009.
 
 ## ADR-009 — Use closed task types, draft CRUD, and immutable revision activation
 
@@ -153,7 +153,7 @@ EventBus is not an authoritative queue. A missing handler, version conflict, or 
 - ADR-004 and ADR-005 vary control style only.
 - ADR-006 makes persistent cursor/state authoritative for both modes.
 - ADR-007 separates product input from deterministic fault verification.
-- ADR-008 owns structured input/storage integration.
+- ADR-008 owns the structured Purchase Request boundary.
 - ADR-009 bounds constructor extensibility.
 
 The decision set was checked against the final implementation, requirements, UML, and automated evidence.
@@ -163,4 +163,4 @@ The decision set was checked against the final implementation, requirements, UML
 - [Architecture overview](./overview.md)
 - [Architecture traceability](./traceability.md)
 - [Requirements](../requirements/requirements.md)
-- [CR-002](../evolution/CR-002-purchase-request-approval-reference-application.md)
+- [CR-003](../evolution/CR-003-purchase-request-reference-workflow.md)

@@ -4,7 +4,7 @@
 
 The project used a lightweight iterative process with Scrum-style checkpoints. It was a solo academic project, so formal team ceremonies were replaced by short planning, implementation, review, and retrospective records. Requirements, risks, architecture, code, tests, and report evidence were kept under Git configuration management.
 
-The process was deliberately adapted after instructor feedback. The first prototype demonstrated technical execution but did not communicate useful product behavior. Change request CR-002 returned the work to requirements and architecture, preserved the reusable workflow core, and applied it to one bounded Purchase Request Approval product.
+The process was deliberately adapted after instructor feedback. The first prototype demonstrated technical execution but did not communicate useful product behavior. CR-003 records the final return to requirements and architecture, preservation of the reusable workflow core, and application to one bounded Purchase Request Approval product.
 
 ## Iteration cycle
 
@@ -25,7 +25,7 @@ Material scope changes follow this path:
 feedback → change request → requirements → architecture → backlog → code/tests → report
 ```
 
-CR-002 is the main example. It did not discard the graph validator, transition resolver, retry policy, run isolation, or trace model. It changed how those capabilities are presented and extended them with purchase request data, structured input validation, persistent approval, authorization/notification effects, and a user-outcome-first dashboard.
+CR-003 is the main change record. It did not discard the graph validator, transition resolver, retry policy, run isolation, or trace model. It changed how those capabilities are presented and extended them with Purchase Request data, structured validation, persistent approval, authorization/notification effects, and a user-outcome-first dashboard.
 
 ## Evidence policy
 
@@ -41,7 +41,7 @@ The final report states limitations instead of converting missing evidence into 
 
 - The Git repository is the source of truth.
 - Requirements, ADRs, UML sources, code, tests, and report source are versioned together.
-- Runtime databases, uploaded documents, caches, virtual environments, and local tools are excluded.
+- Runtime databases, caches, virtual environments, and local tools are excluded.
 - Activated workflow revisions are immutable in the product; earlier runs remain linked to their original revision.
 - The final repository exposes one application and one local deployment topology.
 

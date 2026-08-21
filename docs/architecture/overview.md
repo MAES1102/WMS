@@ -1,213 +1,116 @@
-# Event-Driven Workflow Management System — Architecture Overview
+# Event-Driven Workflow Management System - Architecture Overview
 
 | Field | Value |
 |---|---|
-| Status | `IMPLEMENTED AND VERIFIED` |
+| Status | Implemented and verified |
 | Requirements baseline | [Requirements](../requirements/requirements.md) |
-| Change source | [CR-002](../evolution/CR-002-purchase-request-approval-reference-application.md) |
-| Implementation | One modular FastAPI application with SQLite and controlled document storage |
-| Verification | Automated domain, application, persistence, presentation, restart, deployment, and UI suites |
+| Change record | [CR-003](../evolution/CR-003-purchase-request-reference-workflow.md) |
+| Deployment | One modular FastAPI application, one SQLite database |
 
-## 1. Purpose
+## 1. System boundary
 
-This correction applies the retained workflow engine to a bounded purchase-request-approval product without mixing business behavior into the shared resolver. The architecture keeps the modular monolith, conditional DAG, shared routing, bounded retry, isolated run state, orchestration, choreography, and persistent trace. It adds immutable workflow revisions, purchase request/document state, a task-executor boundary, classified failures, persistent human approval, resumable execution, bounded document storage, and a form-based constructor.
+The product controls one repeatable approval process. A requester submits structured Purchase Request data, an approver decides persistent work, a process owner configures a bounded workflow, and an evaluator can inspect business state and execution evidence. The application produces internal Purchase Authorization and Internal Notification records. It does not place orders, transfer money, reserve budgets, contact suppliers, send email, or integrate with ERP/accounting systems.
 
-The system is independently implemented. Camunda, n8n, and Temporal remain behavioral references; no external workflow engine is introduced.
+The deployable boundary is one FastAPI process plus one SQLite database. An optional Docker Compose file runs the same single application service with a persistent volume. There is no external workflow engine, message broker, or second service.
 
-## 2. System boundary and actors
+## 2. Architectural style
 
-The deployment boundary is one FastAPI application plus persistent database and controlled local document storage.
+The implementation is a layered modular monolith.
 
-| Actor or boundary | Responsibility |
+| Layer | Responsibility |
 |---|---|
-| Submitter | Supplies one purchase request structured purchase request data; reads business status, notification, and trace. |
-| Approver | Lists pending work, inspects purchase request information, and submits one approve/reject decision. |
-| Workflow operator | Configures a draft from the closed task catalog, validates it, activates an immutable revision, and selects execution mode. |
-| Academic evaluator | Observes the business result and then compares orchestration with choreography. |
-| structured input library adapter | Opens a bounded local structured input and reports technical readability/page information; performs no OCR or interpretation. |
-| Persistent database | Owns definitions/revisions, purchase requests, runs, execution cursor, attempts, approvals, decisions, notifications, and trace. |
-| Controlled document storage | Stores documents only under system-generated identities. |
+| Presentation | FastAPI routes, Pydantic request/response translation, and the four-view browser UI. |
+| Application | Submission, automatic step execution, approval lifecycle, orchestration, choreography, recovery, constructor, and queries. |
+| Domain | Purchase Request validation, workflow graph rules, transition resolution, retry eligibility, and controlled enums/value objects. |
+| Persistence/infrastructure | SQLAlchemy models and repositories, transaction boundaries, SQLite configuration, synchronous EventBus, and deterministic demonstration fault adapter. |
 
-There is no external payment, accounting, email, OCR/AI, broker, or workflow-engine service.
+Dependencies point toward application and domain policy. Routes do not implement workflow routing, and the EventBus is never authoritative state.
 
-## 3. Quality drivers
+## 3. Component responsibilities
 
-| Driver | Requirement coverage | Architectural response |
-|---|---|---|
-| Understandable product result | `FR-031`–`FR-047`, `FR-053`, `NFR-011` | Request application services and business-state projections precede trace/mode details in the presentation boundary. |
-| Shared semantics | `FR-013`–`FR-017`, `NFR-002` | Both strategies call the same executor ports, retry policy, resolver, repositories, and trace vocabulary. |
-| Durable waiting/resume | `FR-036`–`FR-042`, `NFR-003` | Approval and execution cursor are persistent; no in-memory subscription is retained while waiting. |
-| Idempotency and isolation | `FR-018`–`FR-020`, `FR-036`, `FR-041`, `FR-042`, `NFR-007` | Run/purchase request keys, one-work-item/one-decision invariants, state version checks, and run-scoped dispatch. |
-| Safe bounded documents | Section 6, `NFR-009`, CON-009 | Streaming size guard, generated storage identity, structured input adapter, controlled rejection, no extraction. |
-| Maintainability | `FR-045`, `FR-048`–`FR-052`, CON-011–CON-014 | Closed executor registry, ports/adapters, immutable revisions, no arbitrary code or imported workflow engine. |
-| Restart retention | `NFR-003`, `NFR-006` | Database-backed execution cursor is authoritative; application recovery can resume committed `RUNNING` work. |
-
-## 4. Architectural style and layers
-
-The target remains a single-deployable layered modular monolith:
-
-| Layer | Owns | Does not own |
-|---|---|---|
-| Presentation | HTTP/UI translation for submissions, decisions, definitions, status, and trace. | Routing, retry, storage paths, or mode-specific business rules. |
-| Application | Submission, approval-decision, definition/revision, execution/resume, query, and recovery use cases. | Reimplemented resolver logic or direct structured input parsing. |
-| Domain | Definition rules, task/result vocabulary, failure classification, retry eligibility, transition resolution, purchase request/run/work-item state transitions, trace meaning. | FastAPI, SQLAlchemy, file paths, structured input technology, EventBus implementation. |
-| Infrastructure | Repositories, transaction boundary, controlled documents, structured input adapter, in-memory EventBus, deterministic fault adapter. | Independent business policy or authoritative in-memory run state. |
-
-Dependencies point inward. Infrastructure implements ports declared by the application/domain boundary.
-
-## 5. Main components and ports
-
-| Component | Responsibility |
+| Component | Implemented responsibility |
 |---|---|
-| Definition service | CRUD for drafts, validation, graph projection, and immutable revision activation. |
-| Request submission service | Accept bounded raw input, create purchase request/run, and invoke the selected strategy. |
-| Approval decision service | Enforce one decision, persist business/run state, and resume the original run. |
-| Execution coordinator | Load revision and cursor, invoke one strategy, and recover committed runnable work. |
-| Orchestration strategy | Perform centralized step-by-step execution until waiting or terminal. |
-| Choreography strategy | Use a temporary run-scoped EventBus handler to perform the same steps until waiting or terminal. |
-| Executor registry | Resolve one of four supported task types to a `TaskExecutor` port. |
-| Task executors | Validate document/metadata, create approval waiting work, authorization document, or create notification. |
-| Retry policy | Retry only retryable technical failure from an automatic task while the bound remains. |
-| Transition resolver | Select outcome-specific edge, then `ALWAYS`, then terminal; never owns retry or purchase request rules. |
-| Repositories/unit of work | Persist one transactionally consistent business/execution step and ordered trace. |
-| Query service | Return purchase request projection, pending approvals, revisions, run status, and ordered trace. |
+| Submission service | Validate the submission boundary, create the Purchase Request and run, and invoke the selected strategy. |
+| Workflow constructor | Create/update/delete drafts, validate bounded definitions, and activate immutable revisions. |
+| Graph validator | Reject invalid start/terminal structure, missing references, unreachable tasks, cycles, unsafe task configuration, and ambiguous routing. |
+| Automatic executor registry | Map one of three automatic task types to controlled application executors. |
+| Automatic step service | Execute and persist attempts, apply bounded retry, call the shared resolver, commit effects/cursor/trace, and report the next state. |
+| Human approval service | Create or retrieve one pending work item, persist waiting, validate decisions, enforce idempotency/conflict rules, and resume the same run. |
+| Orchestrator | Centrally advance committed steps until waiting or terminal. |
+| Choreographer | Temporarily subscribe a run-scoped handler and synchronously trigger committed steps until waiting or terminal. |
+| Run query service | Return request state, run/cursor status, approval result, authorization, notification, attempts, and ordered trace. |
+| Persistence unit of work | Commit each observable business/execution step consistently in SQLite. |
 
-## 6. Shared execution contract
+## 4. Closed task catalog
 
-Automatic executors return a controlled `TaskResult`:
-
-- `outcome`: `SUCCESS` or `FAILURE`;
-- `failure_class`: absent for success, otherwise `BUSINESS`, `RETRYABLE_TECHNICAL`, or `NON_RETRYABLE_TECHNICAL`;
-- `reason`: bounded diagnostic/business explanation;
-- optional controlled business-state changes produced through the current unit of work.
-
-The execution algorithm is shared:
-
-1. Load the immutable revision, run, purchase request, and execution cursor.
-2. If the task is human approval, create/get one pending work item, persist `WAITING_FOR_APPROVAL`, record trace, and return without resolving a transition.
-3. Otherwise invoke the registered automatic executor and persist the attempt/result.
-4. Retry only `RETRYABLE_TECHNICAL` failure below the configured bound; do not select an edge.
-5. Convert final executor result to `SUCCESS` or `FAILURE` and call the shared resolver.
-6. Persist the selected transition and next cursor, or terminal decision, before the next control trigger.
-
-Business failure and human rejection are expected route inputs, not technical retries. Task display names never select executor or verification behavior.
-
-## 7. Persistent execution cursor
-
-Each run has one authoritative cursor containing, conceptually:
-
-- current task definition identity;
-- phase `READY`, `WAITING_FOR_APPROVAL`, or `TERMINAL`;
-- monotonic state version;
-- terminal decision when present;
-- selected workflow revision and execution mode.
-
-Each step commits the cursor, affected purchase request/work-item records, attempt/decision/notification records, and trace observations in one unit of work. Uniqueness constraints enforce one work item per `(run, human task)`, one authoritative decision per work item, one attempt ordinal per `(run, task)`, and one trace position per run.
-
-The cursor, not EventBus memory, determines what may execute. A recovery use case may safely identify `RUNNING` cursors in `READY` phase and invoke their selected strategy after a controlled restart. State-version checks prevent two handlers from advancing the same cursor concurrently.
-
-## 8. Human approval lifecycle
-
-Reaching `HUMAN_APPROVAL` is not an automatic attempt:
-
-1. create or retrieve the unique pending work item;
-2. set purchase request `PENDING_APPROVAL` and run/cursor waiting state;
-3. persist trace and finish the current request/dispatch scope;
-4. retain no EventBus subscriber while waiting;
-5. on decision, atomically create the authoritative decision and set outcome/purchase request/cursor state;
-6. an identical repeated decision returns the existing result; a conflicting decision does not change state;
-7. invoke the original run's selected strategy from the persisted cursor.
-
-Approve produces routing outcome `SUCCESS`; reject produces `FAILURE`. Neither is automatically retried.
-
-## 9. Orchestration and choreography
-
-### Orchestration
-
-The coordinator invokes the orchestration strategy. A central loop performs shared steps until the cursor becomes waiting or terminal. After a decision, the approval service invokes the coordinator for the same run and mode.
-
-### Choreography
-
-For each active processing scope, the choreography strategy registers exactly one run-keyed advance handler, publishes a synchronous internal advance event, and removes the handler when the cursor becomes waiting or terminal. The handler uses the same shared step service as orchestration.
-
-State is committed before publishing the next event. EventBus carries a trigger containing only stable run identity and expected state version; it does not carry the authoritative purchase request or execution state. Missing handler, version conflict, or executor error becomes a controlled execution error. No subscriber survives the waiting period or application restart.
-
-## 10. Workflow revisions and constructor
-
-Definitions have mutable drafts and immutable activated revisions:
-
-- draft CRUD is separate from run execution;
-- validation covers graph rules, closed task types, task configuration, and positive automatic attempt bounds;
-- activation snapshots tasks/transitions/configuration into a revision;
-- a run references exactly one revision;
-- editing an activated definition creates another revision and never changes previous runs;
-- the constructor is form-based and renders a graph projection; it accepts no executable expressions or plugins.
-
-## 11. Document handling
-
-The request boundary reads at most the configured limit plus one byte, rejects oversize input, and never uses the original filename as a path. A generated storage identity is created before persistence. The structured input adapter checks declared type, recognizable/openable structure, encryption/readability, and page count. Metadata validation is domain policy. Failed validation retains only the controlled evidence required by the approved requirements; architecture implementation review must specify cleanup of rejected temporary content.
-
-Authorization success creates an authorization record and preserves the generated document identity. Authorization exhaustion sets `NEEDS_MANUAL_ACTION` before normal failure routing.
-
-## 12. Persistence and trace ordering
-
-The unit-of-work boundary commits business state and its trace observations together. Required transaction groups are:
-
-- submission + purchase request + run + initial cursor/trace;
-- automatic attempt + result + retry/next cursor/terminal trace;
-- pending approval + waiting purchase request/run/cursor trace;
-- decision + approval/purchase request outcome + resumed cursor trace;
-- authorization/notification record + purchase request state + trace;
-- terminal run/cursor + terminal trace.
-
-Run-local trace positions are allocated inside the transaction. Implementation must not derive ordering from timestamps.
-
-## 13. Evolution from the original prototype
-
-| C5A element | Disposition | Required correction |
+| Task type | Kind | Meaning |
 |---|---|---|
-| Frozen domain definition/result types | Retain and extend | Add task type/configuration and executor-result/failure vocabulary without purchase request rules in resolver. |
-| Graph validation | Retain | Validate revision/task-type configuration and automatic-task bounds; preserve deterministic issue ordering. |
-| Transition resolver | Retain | Keep `SUCCESS`/`FAILURE`/`ALWAYS` semantics unchanged. |
-| `WorkflowTransition` concept | Retain | Associate with immutable revision rather than mutable definition execution. |
-| `TaskAttempt` concept | Retain and extend | Add failure class/reason and ensure only automatic executions create attempts. |
-| `TraceEntry` concept | Retain and extend | Add waiting, resume, work-item, decision, purchase request-state, notification, and controlled-error kinds. |
-| `WorkflowRun` concept | Change | Add revision/purchase request association, `WAITING_FOR_APPROVAL`, and persistent cursor/version. |
-| Mutable `Task.status`/timestamps compatibility fields | Removed | Run state now belongs only to purchase request-run persistence. |
-| Named task scenario lookup | Replace | Use real input/decision and an optional deterministic adapter keyed by stable run/task configuration. |
-| Existing runtime routes/engines | Removed after vertical cutover | One purchase request application now owns the runtime boundary. |
+| `REQUEST_VALIDATION` | Automatic | Validate structured Purchase Request fields and produce success or business failure. |
+| `HUMAN_APPROVAL` | Human | Persist work and wait for approve/reject input; no automatic attempt is created. |
+| `PURCHASE_AUTHORIZATION` | Automatic | Create an internal authorization after approval or expose deterministic retry/manual-action behavior. |
+| `CREATE_NOTIFICATION` | Automatic | Persist an internal status message; it does not send email. |
 
-The final repository contains no parallel legacy runtime.
+## 5. Persistence ownership
 
-## 14. 4+1 view set
+SQLite stores mutable workflow drafts and their task/transition rows; immutable workflow revisions and their snapshots; Purchase Requests; workflow runs; versioned execution cursors; automatic task attempts; approval work items and decisions; Purchase Authorizations; Internal Notifications; and run-local ordered trace entries.
 
-| View | UML source |
+A run references exactly one immutable revision and one Purchase Request. Runtime state belongs to the run/cursor rather than the reusable task definition. Each trace entry receives a run-local position inside the transaction, so ordering does not depend on timestamp precision.
+
+Important uniqueness and consistency rules include one cursor per run, one attempt ordinal per run/task, one work item per run/human task, one authoritative decision per work item, and one trace position per run. State-version checks prevent stale continuation from advancing the cursor.
+
+## 6. Execution contract
+
+Automatic executors return `TaskResult` with `SUCCESS` or `FAILURE`; a failure also carries `BUSINESS`, `RETRYABLE_TECHNICAL`, or `NON_RETRYABLE_TECHNICAL` classification and an optional reason. Retry is evaluated before transition selection. A retryable technical failure below the positive attempt bound repeats the same task and selects no edge. Business failure, non-retryable failure, or exhausted retry enters normal transition resolution.
+
+The resolver first considers the edge matching the final outcome, then an `ALWAYS` fallback. If neither exists, success becomes a successful terminal and failure becomes an unsuccessful terminal. Equal-precedence ambiguity is rejected during definition validation.
+
+## 7. Persistent human wait and resume
+
+When the cursor reaches `HUMAN_APPROVAL`, the application creates or retrieves the unique work item, updates request/run/cursor state to waiting, records trace observations, commits, and returns. No database transaction, HTTP request, or EventBus subscription remains open.
+
+An approval decision is validated and committed against the work item. Repeating an identical decision returns the established result; a different decision conflicts and cannot mutate the run. The cursor resumes on the outcome appropriate to approve or reject and the coordinator invokes the original run's stored execution mode.
+
+## 8. Orchestration and choreography
+
+Orchestration uses a central application loop. It repeatedly reads the shared step result and advances until waiting or terminal. This makes control ownership explicit and easy to trace.
+
+Choreography registers one handler keyed to the active run, publishes a synchronous `AdvanceRun` trigger carrying stable run identity and expected state version, and removes the handler at waiting, terminal state, or error. The next handler scope is reconstructed after a decision or recovery. The EventBus does not persist events, perform asynchronous delivery, coordinate services, or provide exactly-once transport.
+
+Both strategies use the same revision, executor registry, retry policy, resolver, unit of work, approval service, and business effects. Their comparison is limited to control ownership inside one process.
+
+## 9. Workflow Designer and immutable activation
+
+The designer accepts task keys/names, exactly one start marker, the four task types, `SUCCESS`/`FAILURE`/`ALWAYS` transitions, and positive maximum-attempt values for automatic tasks. Validation precedes activation. Activation copies the accepted draft into an immutable revision; existing runs are never redirected when a later draft changes.
+
+Arbitrary code, scripts, expressions, plugins, unknown task types, cycles, parallel fork/join, nested workflows, and general BPMN semantics are excluded.
+
+## 10. Run-state model and recovery
+
+The cursor phase is `READY`, `WAITING_FOR_APPROVAL`, or `TERMINAL`; the run records its broader status and execution mode. A committed `READY` cursor can be re-entered by recovery after application restart. A waiting cursor resumes only through the approval decision use case. A terminal cursor cannot advance.
+
+The restart tests start a real Uvicorn process, create a waiting run, terminate the process, start another process against the same isolated database, submit the decision, and verify that the same run reaches `AUTHORIZED`. The sequence is covered in both modes.
+
+## 11. Deployment view
+
+The local command starts Uvicorn and points SQLAlchemy at `WORKFLOW_DATABASE_URL` or the default `workflow.db`. Compose supplies `sqlite:////data/workflow.db` and one named persistent volume. This is a local academic deployment topology, not evidence of high availability, horizontal scaling, or production operations.
+
+## 12. 4+1 UML views
+
+| View | Sources |
 |---|---|
 | Logical | [domain-model.puml](./uml/domain-model.puml), [run-state.puml](./uml/run-state.puml) |
 | Process | [orchestration-sequence.puml](./uml/orchestration-sequence.puml), [choreography-sequence.puml](./uml/choreography-sequence.puml), [routing-retry-activity.puml](./uml/routing-retry-activity.puml) |
 | Development | [component-view.puml](./uml/component-view.puml) |
 | Physical | [deployment-view.puml](./uml/deployment-view.puml) |
-| Scenarios | [system-context-use-cases.puml](./uml/system-context-use-cases.puml) and both sequence views |
+| Scenarios | [system-context-use-cases.puml](./uml/system-context-use-cases.puml) plus both sequence views |
 
-## 15. Explicit exclusions
+## 13. Limitations
 
-- full BPMN/general low-code platform;
-- arbitrary user code or executor plugins;
-- payment, accounting integration, OCR/AI, fraud detection, analytics, authentication, or external notification;
-- Kafka, ZooKeeper, distributed broker, microservices, or distributed execution;
-- parallel fork/join, graph cycles, or retry edges;
-- another product's engine, code, diagrams, or architecture as implementation;
-- unsupported durability, security, availability, or scale claims.
+The architecture has no authentication/RBAC, external procurement integration, durable broker, distributed services, parallel graph execution, high availability, measured performance, or production security evidence. SQLite and synchronous in-process event dispatch are appropriate to the bounded academic scope but are not presented as universal production choices.
 
-## 16. Verification result
-
-All nine decisions agree with the current requirements and all eight PlantUML sources have matching vector/structured input renders. Automated verification covers the two control strategies, the five business scenarios, constructor activation, persistence, waiting/resume, retry, isolation, trace ordering, local startup, and deployment inventory. The system remains a bounded academic reference application; external production deployment, authentication, and accounting integration are intentionally outside scope.
-
-## 17. Related records
+## Related records
 
 - [Architecture decisions](./decisions.md)
 - [Architecture traceability](./traceability.md)
 - [Requirements](../requirements/requirements.md)
-- [CR-002](../evolution/CR-002-purchase-request-approval-reference-application.md)
-- [Product backlog](../process/product-backlog.md)
-- [Risk register](../process/risk-register.md)
+- [CR-003](../evolution/CR-003-purchase-request-reference-workflow.md)

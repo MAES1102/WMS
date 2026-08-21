@@ -1,89 +1,90 @@
-# Defense Script — Event-Driven Workflow Management System
+# Defense Script - Event-Driven Workflow Management System
 
-## 30-second opening
+## Opening (about 40 seconds)
 
-“This is not a simulator of green workflow nodes. It is an purchase-request-approval application. A user submits one purchase request structured purchase request data. The system validates it, pauses for a real human decision, resumes the same persisted run, authorizations an approved document or records another controlled outcome, creates an internal notification, and preserves the audit trace. I implemented that same business process with orchestration and choreography so their control-flow trade-off can be compared without changing the business rules.”
+This project helps a small organization control repeatable approval processes. A requester submits structured purchase information, a manager receives persistent approval work, and the system records the decision, resumes safely after waiting or restart, retries temporary automatic failures, and retains an audit history. Purchase Request Approval is the reference process.
 
-## Five-minute demonstration
+The professor approved the Event-Driven Workflow Management System direction and accepted orchestration and choreography as the two complex functionalities. Purchase Request Approval is my final reference scenario for explaining that direction; I do not claim that the professor separately approved the scenario or every design decision.
 
-### 1. Establish the product value — 40 seconds
+## Demonstration sequence (7-10 minutes)
 
-Open `/ui`. Point to the purchase request form and say what the user receives: purchase request identity, current business state, required next action, final result, execution mode, and optional audit evidence.
+### 1. Real-world problem (45 seconds)
 
-Do not open the constructor or raw trace yet.
+Small organizations can lose status, ownership, and decision history when approvals are handled through messages and spreadsheets. This system creates one visible process state and ordered evidence. It is an approval-control system, not an ordering, accounting, or payment system.
 
-### 2. Approved orchestration path — 80 seconds
+### 2. Requester and useful outcome (40 seconds)
 
-1. Select orchestration.
-2. Submit the prepared valid structured purchase request data.
-3. Show `PENDING_APPROVAL` and “Review and decide this purchase request.”
-4. Explain that the HTTP request finished and the cursor/work item are persisted.
-5. Approve the purchase request.
-6. Show `AUTHORIZED`, “Approved and authorized,” and “No action required.”
+Open `/ui`. Identify the requester, approver, and process owner. The useful outcome is a validated, rejected, internally authorized, or manual-action state with a notification and audit history.
 
-Key sentence: “The green steps support the result; they are not the result.”
+### 3. Structured request submission (55 seconds)
 
-### 3. Failure with business meaning — 60 seconds
+In **1. Submit Request**, show requester, department, item or service, supplier, amount, currency, justification, and required date. Submit the prepared example in orchestration mode. Point out that the payload is structured business data and that no purchase order or payment is created.
 
-Use the visible **Demonstration scenario** selector.
+### 4. Persistent human approval (70 seconds)
 
-- Select **Authorization fails once, then succeeds**, approve, and show two authorization attempts, one retry observation, then `AUTHORIZED`.
-- If time permits, select **Authorization remains unavailable**, approve, and show `NEEDS_MANUAL_ACTION` after the bound is exhausted.
+Show `PENDING_APPROVAL` and open **2. Approver Inbox**. Explain that the submission request has finished: the approval work item, run, cursor, and trace are stored in SQLite. The system is not holding an HTTP request or EventBus subscription while the manager decides. Approve the item once.
 
-Key sentence: “A technical retry repeats the same task and selects no graph edge. Only after the bound is exhausted does normal failure routing continue.”
+### 5. Final Purchase Authorization (45 seconds)
 
-### 4. Choreography parity — 70 seconds
+Open **3. Run Status / History** and show `AUTHORIZED`, the Purchase Authorization identifier, internal notification, and ordered technical audit trace. State clearly: Purchase Authorization is an internal record of approval. It does not place an order, reserve funds, contact a supplier, or transfer money.
 
-Run the equivalent approved case in choreography. Show the same final business state. Then open only the relevant trace observations.
+### 6. Retry or restart evidence (75 seconds)
 
-Explain: “Choreography changes who triggers the next committed step. It does not own another copy of purchase request, retry, or routing policy. The handler is scoped to one active run and is removed while waiting.”
+Open **Demonstration Controls**, select **Temporary failure, then retry success**, and repeat the approval path. Show two authorization attempts, the retry observation, and final `AUTHORIZED`. Explain that retry repeats the current automatic task without selecting an edge. If asked about restart, cite the two integration tests that start a real Uvicorn process, stop it at the human wait, start a new process against the same isolated database, and resume the same run in orchestration and choreography.
 
-### 5. Architecture and evidence — 50 seconds
+### 7. Bounded Workflow Designer (55 seconds)
 
-Show the shared activity diagram and the two sequence diagrams. Then state:
+Open **4. Workflow Designer**. Show the closed catalog: `REQUEST_VALIDATION`, `HUMAN_APPROVAL`, `PURCHASE_AUTHORIZATION`, and `CREATE_NOTIFICATION`. Demonstrate validation and immutable activation. Emphasize that task keys, names, start marker, transitions, and automatic attempt bounds are configurable, but scripts, expressions, plugins, arbitrary task types, cycles, and fork/join are excluded.
 
-- five scenarios × two modes;
-- five normalized mode comparisons;
-- 205 passing repository tests after final product consolidation;
-- both modes resume a waiting purchase request after real Uvicorn process recreation;
-- one application service and no Kafka/ZooKeeper.
+### 8. Orchestration and choreography comparison (70 seconds)
 
-Finish with the limitation: the product is a bounded academic application, not an authenticated production accounting or payment system.
+Run or show the equivalent choreography case. Both modes use the same revision, executors, retry policy, transition resolver, database, and business effects. Orchestration owns advancement in a central loop. Choreography uses a temporary synchronous run-scoped `AdvanceRun` handler. The database cursor is authoritative; this is not distributed choreography and there is no durable message broker.
 
-## Likely questions
+### 9. Custom logic and architecture (60 seconds)
 
-### How does the system know whether a payment succeeded?
+Show the activity, component, and sequence diagrams. The custom logic includes graph validation, deterministic transition resolution, bounded retry, persistent cursor and wait/resume, idempotent approval decisions with conflict detection, immutable revisions, run isolation, ordered trace, and the two control strategies. The deployment is one modular FastAPI application with one SQLite database. The final unchanged suite reports **98 passed**.
 
-It does not process a bank payment. The bounded product is purchase request approval. Outcomes come from metadata/structured input validation, the human approve/reject decision, authorization behavior, and deterministic test faults. A real payment adapter is outside scope.
+### 10. Limitations and close (40 seconds)
 
-### Why have both orchestration and choreography?
+This is a bounded academic prototype. It has no authentication or RBAC, external procurement or accounting integration, supplier communication, email delivery, durable broker, distributed execution, high availability, or production security and scalability evidence.
 
-To compare control placement under identical semantics. Orchestration is simpler to follow; choreography demonstrates event-triggered advancement but requires strict handler cleanup, persistent cursor state, and version checks.
+Closing sentence: The engineering contribution is controlled workflow behavior across failure and time: invalid input cannot reach approval, retries are bounded, a human decision can arrive after restart, duplicate decisions cannot advance a run twice, and both control strategies preserve the same business meaning.
 
-### Why no Kafka?
+## Difficult questions and concise answers
 
-The project is one application, and a distributed broker adds infrastructure without improving this bounded comparison. The EventBus is in-process and never authoritative for waiting state.
+| Question | Concise answer | Evidence to show |
+|---|---|---|
+| What problem does it solve? | It makes repeatable approvals visible, resumable, and auditable for a small organization. | Submit, Inbox, Status views and context diagram. |
+| What is the final business result? | An internal Purchase Authorization after approval, or a controlled rejected, invalid, or manual-action result. | Run status and persisted effects. |
+| Does authorization place an order? | No. It is an internal record only; ordering, funds, suppliers, and payments are outside scope. | UI boundary text and limitations. |
+| Why two execution modes? | They compare control ownership while holding revision, rules, persistence, and outcomes constant. | Paired sequence diagrams and scenario tests. |
+| Is choreography distributed? | No. It uses a synchronous in-process EventBus with a temporary run-scoped handler. | Component/choreography diagrams and `event_bus.py`. |
+| Why no Kafka? | One-process comparison does not require broker operations; durable state is stored in SQLite. | Deployment diagram and Compose configuration. |
+| What survives restart? | Revision, request, run, cursor, attempts, approval work, decision, effects, and trace. EventBus handlers do not. | Restart tests and persistence model. |
+| How are duplicates handled? | Repeating the same decision returns the existing result; a conflicting decision is rejected without advancing state. | Approval service tests. |
+| What is configurable? | Safe task definitions and transitions inside a closed four-type catalog; activated revisions are immutable. | Workflow Designer and constructor tests. |
+| What is genuinely custom? | Validator, resolver integration, retry order, cursor lifecycle, approval semantics, isolation, trace, and both control strategies. | Source-to-test traceability table. |
+| How is failure demonstrated? | An explicit deterministic adapter produces standard, retry-then-success, or exhausted authorization behavior. | Demonstration Controls and retry tests. |
+| Why only 98 tests? | That is the exact collected and passing repository suite after final consolidation; quality is reported by coverage categories and scenarios, not inflated counts. | Cache-suppressed pytest output. |
+| What would come next? | Authentication/RBAC, external procurement adapters, durable messaging only if distribution is required, and measured usability/security work. | Limitations and future-work section. |
 
-### What is custom here?
+## Statements to avoid
 
-The graph validator, transition resolver integration, retry classification and bounds, persistent human lifecycle, idempotent decision, run isolation, cursor/version rules, two execution strategies, business projections, constructor boundary, and acceptance matrix. Framework/ORM/structured input/test libraries are disclosed reuse.
+- Do not say the system processes payments, places orders, reserves budgets, or contacts suppliers.
+- Do not call the EventBus distributed, durable, asynchronous, or exactly-once.
+- Do not claim production deployment, performance, scalability, penetration testing, or user-research results.
+- Do not claim the professor approved Purchase Request Approval or every architecture choice.
+- Do not call the Workflow Designer a general low-code or BPMN platform.
+- Do not quote any test count other than the current verified **98 passed**.
+- Do not describe demonstration failures as real third-party failures.
 
-### Is the constructor a low-code platform?
+## Evidence checklist
 
-No. It is an optional advanced form for four built-in task types and three transition conditions. It accepts no user code, scripts, expressions, or plugins.
-
-### What survives restart?
-
-Workflow revisions, purchase request/run state, cursor, attempts, work item, decision, notification, ordered trace, and stored document. EventBus subscriptions do not survive and do not need to.
-
-### Why is the failure selectable?
-
-The selector is a deterministic demonstration adapter for authorization availability. It is persisted with the run, produces repeatable evidence, and never decides whether the purchase request is approved. The actual business decision still comes from the approver; the adapter only demonstrates bounded technical failure handling.
-
-### What would you do next?
-
-Repeat container startup on the defense machine, perform external usability/accessibility testing, and add authentication if the application were moved beyond the academic boundary. I would not add another large feature before those steps.
-
-## Closing sentence
-
-“The project’s significance is controlled, explainable workflow behavior around failure and time: invalid input cannot reach approval, retries are bounded, a human decision can arrive after restart, duplicate decisions cannot advance twice, and both control strategies produce the same purchase request outcome.”
+- Four current browser views with meaningful Purchase Request data.
+- Authorized run and Purchase Authorization identifier.
+- Retry observation and attempt sequence.
+- Current UML SVGs.
+- `98 passed` output from the unchanged suite.
+- Restart tests for both modes.
+- OpenAPI route list and single-service Compose validation.
+- Final report, CR-003, reuse disclosure, and limitations.

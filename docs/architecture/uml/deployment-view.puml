@@ -12,32 +12,21 @@ node "Application host" as Host {
     component "Application/domain modules" as Core
     component "Run-scoped in-memory EventBus" as EventBus
     component "Persistence adapters" as Persistence
-    component "Document/structured input adapter" as Documents
-    component "Third-party structured input library" as PdfLib <<library>>
   }
 }
 
-database "SQLite\npurchase request.db" as Database
-folder "Controlled storage\npurchase request_documents/" as Storage
+database "SQLite\nworkflow.db" as Database
 
 Browser --> HTTP : client-server requests
 HTTP --> Core : in-process use cases
 Core --> EventBus : in-process choreography triggers
 Core --> Persistence : transactions and queries
-Core --> Documents : bounded document operations
 Persistence --> Database : definitions, purchase requests, runs,\napprovals, attempts, notifications, trace
-Documents --> Storage : generated identities only
-Documents --> PdfLib : open/readability/page checks
 
 note right of App
 Orchestration and choreography share this process.
 Restart recovery reads persistent cursors.
 EventBus holds no waiting state.
-end note
-
-note bottom of Storage
-No original filename selects a path.
-No OCR, AI extraction, or external document service.
 end note
 
 note "Absent: Kafka, ZooKeeper, distributed broker,\nmicroservices, external workflow engine,\npayment/accounting system, external email." as Exclusions

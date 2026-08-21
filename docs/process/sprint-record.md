@@ -24,8 +24,8 @@ The dates are project-record dates. This is a concise reconstruction of the deli
 
 **Goal:** turn the workflow engine into an understandable Purchase Request Approval application.
 
-- Planning: CR-002, bounded actors, five business scenarios, exclusions, and revised UML.
-- Development: purchase request submission, safe document storage, metadata/structured input validation, persistent human work item, approve/reject continuation, authorization and notification records.
+- Planning: CR-003, bounded actors, business scenarios, exclusions, and revised UML.
+- Development: structured Purchase Request submission and validation, persistent human work item, approve/reject continuation, authorization and notification records.
 - Review: approved, rejected, and invalid paths produced business states rather than synthetic node colors.
 - Retrospective: failure behavior needed to be directly selectable and repeatable in the dashboard.
 
@@ -35,7 +35,7 @@ The dates are project-record dates. This is a concise reconstruction of the deli
 
 - Planning: closed constructor catalog, immutable activation, exact scenario evidence.
 - Development: draft CRUD, graph validation feedback, revision snapshots, restart/resume, status projection, deterministic authorization fault adapter.
-- Review: five scenarios in both modes, duplicate-decision protection, threaded isolation, structured input boundaries, exact traces, and restart checks.
+- Review: business scenarios in both modes, duplicate-decision protection, threaded isolation, structured field boundaries, exact traces, and restart checks.
 - Retrospective: advanced configuration and technical trace must remain secondary to purchase request status.
 
 ## Iteration 5 — Product consolidation and submission
@@ -44,5 +44,5 @@ The dates are project-record dates. This is a concise reconstruction of the deli
 
 - Planning: remove obsolete prototype files, reconcile documentation, preserve only defensible artifacts.
 - Development: one `app.main` composition root, one `purchase request.db`, constrained launcher, five-scenario selector, concise README, synchronized report/UML/process records.
-- Review: full automated suite, whitespace/reference scans, application smoke test, and final structured input visual inspection.
+- Review: full automated suite, whitespace/reference scans, application smoke test, and final report visual inspection.
 - Retrospective: reuse is disclosed, scope remains bounded, and production concerns such as authentication or external accounting are left as explicit future work.

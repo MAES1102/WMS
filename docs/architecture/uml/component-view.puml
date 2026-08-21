@@ -17,13 +17,10 @@ node "One FastAPI application" {
   component "Closed executor registry" as Executors <<application>>
   component "Run-scoped EventBus" as EventBus <<infrastructure>>
   component "Repositories / unit of work" as Repositories <<infrastructure>>
-  component "structured input + document adapters" as Documents <<infrastructure>>
   component "Deterministic authorization scenario adapter" as Faults <<application adapter>>
 }
 
-database "Persistent database" as Database
-folder "Controlled document storage" as Storage
-component "Selected structured input library" as PdfLib <<third-party library>>
+database "SQLite workflow database" as Database
 
 Users --> Browser
 Browser --> HTTP
@@ -36,14 +33,11 @@ Orchestration --> Step
 Choreography --> Step
 Choreography --> EventBus
 Step --> Executors
-Executors --> Documents
 Executors --> Faults
 Services --> Repositories
 Coordinator --> Repositories
 Step --> Repositories
 Repositories --> Database
-Documents --> Storage
-Documents --> PdfLib
 
 note right of EventBus
 Transient trigger only.
@@ -59,7 +53,7 @@ end note
 
 legend
 Dependencies point toward shared policy.
-No broker, external workflow engine, OCR, or business service.
+No broker, external workflow engine, or external business service.
 Final conceptual components; API paths and class names are omitted for clarity.
 endlegend
 @enduml
