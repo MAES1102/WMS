@@ -1,4 +1,3 @@
-import app.persistence.models  # noqa: F401
 from contextlib import asynccontextmanager
 from pathlib import Path
 

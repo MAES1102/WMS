@@ -1,6 +1,45 @@
 @startuml
 title Purchase Request Workflow — Single-Service Deployment View
 skinparam shadowing false
+skinparam backgroundColor white
+skinparam defaultFontName Helvetica
+skinparam defaultFontSize 13
+skinparam roundcorner 8
+skinparam ArrowColor #326d91
+skinparam ArrowThickness 1.3
+skinparam titleFontColor #12395b
+skinparam titleFontSize 16
+skinparam titleFontStyle bold
+skinparam node {
+  BackgroundColor #f4f6f8
+  BorderColor #9eabb7
+  FontColor #12395b
+}
+skinparam component {
+  BackgroundColor #e9f1f6
+  BorderColor #1d567d
+  FontColor #12395b
+}
+skinparam artifact {
+  BackgroundColor #e9f1f6
+  BorderColor #1d567d
+  FontColor #12395b
+}
+skinparam database {
+  BackgroundColor #d7e6ef
+  BorderColor #1d567d
+  FontColor #12395b
+}
+skinparam note {
+  BackgroundColor #fff8e7
+  BorderColor #c9a227
+  FontColor #5a4600
+}
+skinparam legend {
+  BackgroundColor #f4f6f8
+  BorderColor #9eabb7
+  FontColor #17212b
+}
 
 node "User device" as Client {
   artifact "Browser" as Browser

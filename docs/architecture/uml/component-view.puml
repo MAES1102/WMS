@@ -2,6 +2,46 @@
 title Purchase Request Workflow — Component View
 skinparam componentStyle rectangle
 skinparam shadowing false
+skinparam backgroundColor white
+skinparam defaultFontName Helvetica
+skinparam defaultFontSize 13
+skinparam roundcorner 8
+skinparam ArrowColor #326d91
+skinparam ArrowThickness 1.3
+skinparam titleFontColor #12395b
+skinparam titleFontSize 16
+skinparam titleFontStyle bold
+skinparam component {
+  BackgroundColor #e9f1f6
+  BorderColor #1d567d
+  FontColor #12395b
+  StereotypeFontColor #5a6470
+}
+skinparam node {
+  BackgroundColor #f4f6f8
+  BorderColor #9eabb7
+  FontColor #12395b
+}
+skinparam database {
+  BackgroundColor #d7e6ef
+  BorderColor #1d567d
+  FontColor #12395b
+}
+skinparam actor {
+  BackgroundColor #e9f1f6
+  BorderColor #1d567d
+  FontColor #12395b
+}
+skinparam note {
+  BackgroundColor #fff8e7
+  BorderColor #c9a227
+  FontColor #5a4600
+}
+skinparam legend {
+  BackgroundColor #f4f6f8
+  BorderColor #9eabb7
+  FontColor #17212b
+}
 
 actor "Application users" as Users
 component "Browser UI" as Browser <<presentation>>

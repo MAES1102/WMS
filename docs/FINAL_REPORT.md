@@ -43,7 +43,7 @@ code { font-family: "Menlo", monospace; font-size: 0.9em; }
 **Academic year:** 2025/2026<br>
 **Submission date:** 21 August 2026
 
-This report is intentionally evidence-based. Missing administrative information is marked as unavailable rather than inferred. The professor approved the Workflow Management System direction and accepted orchestration and choreography as the two complex functionalities. Purchase Request Approval is the final reference scenario selected to make that direction understandable; this report does not claim separate professor approval of that scenario or every final design decision.
+I have tried to write this report the way I would answer questions about it: state what I built, show the evidence, and say plainly where the evidence stops. Where administrative details were missing I left them marked as missing instead of guessing. The professor approved the direction — a Workflow Management System with orchestration and choreography as the two complex functionalities — and I chose Purchase Request Approval myself as the scenario that would make that direction concrete. I am not claiming the professor separately signed off on that scenario or on every design decision below it.
 
 </div>
 
@@ -67,7 +67,7 @@ This report is intentionally evidence-based. Missing administrative information 
    - Constraints, acceptance criteria, and traceability
 6. Development process and project control
    - Solo incremental method
-   - Four truthful increments
+   - Four honest increments
    - Configuration/change management and risks
 7. Evolution history
 8. Product description
@@ -92,29 +92,29 @@ This report is intentionally evidence-based. Missing administrative information 
 
 # Executive summary
 
-This individual Software Engineering project implements a bounded Event-Driven Workflow Management System for a small organization. The reference process is Purchase Request Approval. A requester submits structured purchase information; the system validates the request, creates a persistent approval work item, waits for a manager decision, resumes the same workflow run, creates an internal Purchase Authorization after approval, records an Internal Notification, and retains an ordered audit history. Negative outcomes are explicit: invalid input stops before human approval, rejection prevents authorization, temporary authorization failure can be retried within a configured bound, and exhausted failure leads to manual action.
+This is a solo Software Engineering project: a workflow-management system scoped down to one reference process, Purchase Request Approval. A requester submits structured purchase data, the system validates it, opens a persistent approval task for a manager, waits — genuinely waits, with nothing held in memory — for a decision, resumes the same run once that decision arrives, and on approval creates an internal Purchase Authorization plus an Internal Notification, all logged in an ordered audit trace. The negative paths get the same care as the happy path: bad input never reaches a human approver, a rejection blocks authorization outright, a transient authorization failure gets a bounded number of retries, and exhausting those retries routes to manual action instead of looping forever.
 
-The project demonstrates two control strategies over identical business semantics. Orchestration uses a central application loop. Choreography uses a synchronous in-process EventBus with a temporary handler scoped to one active run. Both use the same immutable workflow revision, task executors, retry policy, transition resolver, SQLite persistence, approval lifecycle, and business effects. The choreography claim is deliberately narrow: it compares event-reaction control ownership inside one modular application. It does not claim distributed services, durable messaging, asynchronous delivery, or exactly-once transport.
+The core engineering comparison is two ways of driving the same run. Orchestration is a central loop that walks the run forward. Choreography reacts to a run-scoped event published on a synchronous, in-process EventBus. Both sit on top of the same immutable workflow revision, the same task executors, retry policy, transition resolver, SQLite persistence, and approval lifecycle — so the comparison is about who owns the "what happens next" decision, not about two different products. I want to be precise about what this choreography claim covers: event-reaction control inside one modular application. It says nothing about distributed services, durable messaging, or asynchronous delivery, and I don't present it that way anywhere in this report.
 
-The principal custom engineering work is the workflow core: deterministic graph validation, transition precedence, bounded retry before routing, persistent versioned cursor, run isolation, immutable revisions, human wait/resume, idempotent decision handling with conflict detection, ordered audit trace, and restart recovery. A bounded Workflow Designer exposes this core safely through four predefined task types and three transition conditions while prohibiting arbitrary executable logic.
+The part of this project that is genuinely mine, rather than framework configuration, is the workflow core underneath both modes: deterministic graph validation, transition precedence, retry that is bounded and resolved before routing, a persistent versioned cursor, run isolation, immutable revisions, human wait-and-resume, idempotent decisions with conflict detection, an ordered trace, and recovery after a real process restart. On top of that sits a Workflow Designer — deliberately closed to four task types and three transition conditions, with no arbitrary executable logic allowed in.
 
-Verification is based on source inspection, connected API journeys, domain and application tests, persistence tests, deployment checks, and real-process restart tests. The final unchanged repository suite reports **98 passed**. The report distinguishes executed evidence from inspected design and documented limitations. No production performance, user research, security testing, deployment success, or stakeholder interviews are claimed.
+The evidence behind these claims comes from source inspection, connected API journeys, domain and application tests, persistence tests, deployment checks, and two tests that restart a real process mid-run. Running the unchanged suite currently reports **98 passed**. Throughout this report I have tried to keep executed evidence, inspected design, and open limitations visibly separate rather than letting one read as the other. There is no production performance data, no user research, no security testing, and no claim of a real deployment anywhere in what follows.
 
 # Introduction
 
-Workflow-management projects can become demonstrations of technical motion rather than useful systems. A screen may show nodes turning green, events being published, or retries occurring without answering why a user needs the product, who owns the next action, what persists while a person is unavailable, and what useful result exists at the end. The design goal of this project is to connect those technical mechanisms to one concrete but limited organizational process.
+It's easy for a workflow-management project to become a demonstration of motion rather than a useful system — a screen where nodes turn green and events fire, without ever answering who owns the next action, what happens while that person is away, or what the process was actually for. My goal with this project was to tie the technical mechanics to one small, concrete organizational process, so that every diagram and every test maps back to something a non-technical reader would recognize as real work.
 
-Purchase Request Approval was chosen because it contains the engineering situations needed for the course objective without requiring external financial or procurement infrastructure. The process has structured input, deterministic validation, a real human wait, positive and negative decisions, an automatic effect after approval, retryable technical behavior, history, and a safe configuration boundary. It is understandable to an evaluator while preserving the two accepted complex functionalities: orchestration and choreography.
+I picked Purchase Request Approval because it gives me the engineering situations the course direction calls for — structured input, deterministic validation, a genuine human wait, both positive and negative outcomes, an automatic effect that follows approval, a retryable technical failure, history, and a safe configuration surface — without needing any real financial or procurement infrastructure behind it. It is also something an evaluator can follow at a glance, while still exercising both accepted complex functionalities: orchestration and choreography.
 
-The system boundary is important. A Purchase Authorization is an internal record that the workflow approved a request. It is not a purchase order, budget reservation, supplier instruction, invoice, accounting entry, or payment. The Internal Notification is a stored application message, not an email. Demonstration failures are deterministic examination controls, not observations from a third-party service. These boundaries prevent the report from assigning capabilities to code that does not implement them.
+Where the system stops matters as much as what it does. A Purchase Authorization is an internal record that says "the workflow approved this" — nothing more. It is not a purchase order, a budget reservation, a supplier instruction, an invoice, an accounting entry, or a payment. The Internal Notification is a row in the database, not an email. The scripted failures used for demonstration are deterministic switches I control, not observations of some third-party service breaking. I keep repeating these boundaries because it would be easy, in a demo, to let the audience assume the system does more than it does.
 
-This report is self-contained. It explains the problem, requirements, process, evolution, product, architecture, algorithms, comparison, evidence, quality, reuse, limitations, and defense checklist. UML figures are included at the point where they support an argument rather than as decoration.
+This report is meant to stand on its own: problem, requirements, process, evolution, product, architecture, algorithms, the orchestration/choreography comparison, evidence, quality, reuse, limitations, and a defense checklist at the end. The UML figures appear where they support an argument in the text, not as a gallery at the back.
 
 # Real-world problem and system boundary
 
 ## Target organization and actors
 
-The target is a small organization that needs to control repeatable internal approval processes but does not require a full enterprise process platform. In an informal approach, requests can arrive through messages or spreadsheets. Required fields vary, responsibility is unclear, duplicate decisions can occur, and a technical restart can make the state difficult to reconstruct. A process owner may also lack a safe way to adjust the sequence without editing source code.
+Picture a small organization that needs to control a repeatable internal approval process but has no appetite for a full enterprise process platform. Left informal, requests arrive as messages or spreadsheet rows, required fields vary from one submission to the next, it's not always clear whose turn it is to act, duplicate decisions slip through, and a server restart can leave nobody sure what state things were in. A process owner in that situation also has no safe way to adjust the sequence of steps short of asking a developer to change code.
 
 | Stakeholder or actor | Goal | Product response | Claim class |
 |---|---|---|---|
@@ -124,7 +124,7 @@ The target is a small organization that needs to control repeatable internal app
 | Academic evaluator | Understand value and compare two control strategies | Business-first UI, shared scenarios, UML and paired tests | Implemented and inspected |
 | Professor | Evaluate whether the final project satisfies academic expectations | Evidence report and defense script; acceptance remains external | Documented limitation |
 
-The logical roles are not security identities. There is no login, password, role assignment, or authorization middleware. Anyone who can access the local application can use its demonstration endpoints. That is acceptable only within the academic/local boundary and is a primary future-work item.
+None of these are security identities — there is no login, no password, no role assignment, no authorization middleware standing between a browser tab and the API. Whoever can reach the local application can use every endpoint. That is fine within the academic/local boundary this project sets for itself, and it is the first thing I would fix before letting anyone near a real deployment.
 
 ## Before and after
 
@@ -139,25 +139,25 @@ The logical roles are not security identities. There is no login, password, role
 | History | Timestamps/messages are fragmented | Ordered run-local audit trace and persisted effects |
 | Restart | In-memory progress can disappear | Committed cursor and records permit same-run recovery |
 
-The comparison describes the problem framing and implemented response; it is not based on interviews or measurements at a deployed organization.
+This table describes how I framed the problem and what the system does about it — it is not drawn from interviews or measurements at a real organization, and I don't present it as such.
 
 ## Useful result
 
-The useful result is an authoritative, explainable state. A successful approved run reaches `AUTHORIZED` and has a Purchase Authorization plus Internal Notification. A rejected request reaches `REJECTED` and skips authorization. An invalid request reaches `VALIDATION_FAILED` before approval work exists. Exhausted authorization failure reaches `NEEDS_MANUAL_ACTION`. The run projection and ordered trace explain how the result was reached.
+What the system produces, at the end of a run, is a state you can explain and defend. An approved run reaches `AUTHORIZED` with a Purchase Authorization and an Internal Notification attached to it. A rejected request reaches `REJECTED` and never touches authorization. An invalid submission reaches `VALIDATION_FAILED` before any human is even asked to look at it. And an authorization that keeps failing technically, past its retry bound, reaches `NEEDS_MANUAL_ACTION` instead of silently stalling. The run projection plus the ordered trace tell you exactly how each of these was reached, step by step.
 
-Figure 1 summarizes the actors and bounded use cases.
+Figure 1 lays out the actors and the use cases this system actually supports.
 
 ![Figure 1. System context and bounded use cases.](architecture/uml/rendered/system-context-use-cases.svg)
 
 ## Explicit boundary
 
-The application does not place orders, reserve or transfer money, confirm budgets, contact suppliers, send external notifications, certify accounting treatment, perform fraud analysis, or integrate with ERP systems. It also does not authenticate actors, distribute execution across services, or promise production availability. These are exclusions, not partially implemented features.
+To say it plainly one more time: this system does not place orders, move money, confirm budgets, contact suppliers, send external notifications, make accounting entries, run fraud checks, or talk to an ERP. It does not authenticate anyone, does not spread execution across services, and makes no promise about production uptime. These aren't features I ran out of time for — they were never in scope.
 
 # Objectives, scope, and effort
 
 ## Objectives and Must Have scope
 
-The project objective is to demonstrate a configurable, persistent, event-driven workflow core through an understandable approval process. The Must Have scope was:
+The objective was to demonstrate a configurable, persistent, event-driven workflow core through a process a person can actually follow. The Must Have scope I committed to:
 
 | ID | Functional scope | Completion evidence |
 |---|---|---|
@@ -174,11 +174,11 @@ The project objective is to demonstrate a configurable, persistent, event-driven
 
 ## Exclusions
 
-Authentication/RBAC, external integrations, distributed brokers, microservices, arbitrary user code, full BPMN, cycles, parallel fork/join, nested workflows, external notification delivery, production monitoring, high availability, and verified scalability were excluded. The exclusions protect the core learning objective and prevent one student from presenting framework configuration as custom workflow engineering.
+I left out authentication/RBAC, external integrations, distributed brokers, microservices, arbitrary user code, full BPMN, cycles, parallel fork/join, nested workflows, external notification delivery, production monitoring, high availability, and any verified scalability. Cutting these wasn't about running out of time — it kept the project honest about what one student can actually build and test in the time available, instead of quietly wiring up a framework and calling the wiring "custom engineering."
 
 ## One-student, 100-hour justification
 
-The peer report used only as a structural reference represented three students and about 300 hours. This project represents one student and approximately 100 hours. It therefore uses one reference workflow, four task types, one deployable process, a compact browser UI, and no external service integration.
+I used a peer report as a structural reference only — that project had three students and roughly 300 hours behind it. This one has one student and about 100 hours, which is why it settles on one reference workflow, four task types, one deployable process, a compact browser UI, and no external service integration.
 
 | Activity | Hours |
 |---|---:|
@@ -193,19 +193,19 @@ The peer report used only as a structural reference represented three students a
 | Documentation, UML, report, and defense reconciliation | 6 |
 | **Total** | **100** |
 
-The table is a retrospective allocation by actual activity category. It does not invent work dates, meetings, standups, or time-sheet precision.
+This is a retrospective allocation by activity category, put together after the fact from what I actually worked on — not a timesheet, and I'm not going to pretend it tracks individual meetings or dates.
 
 # Requirements engineering
 
 ## Stakeholder goals and functional requirements
 
-Requirements were organized around the useful process outcome, then traced to implementation and tests. The detailed baseline is maintained in `docs/requirements/requirements.md`; this section summarizes the active behavior.
+I organized requirements around the useful outcome each one produces, then traced each back to the code and the tests that exercise it. The full baseline lives in `docs/requirements/requirements.md`; what follows here is a summary of the behavior that's actually active.
 
-The requester must provide requester name, department, item or service, supplier, positive amount, three-letter uppercase currency, meaningful justification, and a valid non-past required date. Domain validation produces deterministic field-specific issues. Valid requests proceed to one human approval task. The approver can inspect context and submit approve or reject; rejection requires a reason. Approval permits Purchase Authorization, while rejection prevents it. Automatic steps persist attempts and use failure classification. Every run is isolated, records an ordered trace, and remains associated with the revision accepted at creation.
+A requester has to provide a name, department, item or service, supplier, a positive amount, a three-letter uppercase currency code, a justification long enough to mean something, and a required date that isn't in the past. Domain validation reports every field-specific problem it finds, not just the first one. A valid request moves to exactly one human approval task. The approver sees the context and submits approve or reject — reject requires a reason, approve doesn't. Approval is the only path that leads to a Purchase Authorization; rejection closes that door immediately. Every automatic step persists its own attempt and carries a failure classification, and every run stays isolated, keeps its own ordered trace, and stays bound to the revision it was created against for its entire lifetime.
 
 ## Non-functional requirements
 
-The project avoids vague quality statements by pairing each metric with a threshold and evidence type.
+Rather than write vague quality statements, I paired each one with a threshold and a way to check it.
 
 | Quality | Metric/threshold | Evidence |
 |---|---|---|
@@ -220,11 +220,11 @@ The project avoids vague quality statements by pairing each metric with a thresh
 | Maintainability | Business algorithms remain independent of FastAPI and SQLite types | Layer/source inspection and domain tests |
 | Usability evidence | Four task-oriented headings and business context precede technical controls | HTML/manual inspection; no user-study claim |
 
-No response-time, throughput, concurrent-user, or uptime threshold is claimed because no credible performance environment or production workload was executed.
+There's no response-time, throughput, concurrent-user, or uptime number in this table, because I never had a credible performance environment or a real production workload to measure against.
 
 ## Constraints
 
-The solution uses Python/FastAPI, SQLAlchemy, Pydantic, SQLite, a static browser client, pytest, and optional Docker. It remains a modular monolith. Workflow definitions are conditional DAGs. The task catalog is closed. The EventBus is synchronous and in-process. Runtime databases are not versioned. These constraints are both feasibility controls and part of the system's claim boundary.
+The stack is Python/FastAPI, SQLAlchemy, Pydantic, SQLite, a static browser client, pytest, and Docker as an optional extra. It stays a modular monolith. Workflow definitions are conditional DAGs. The task catalog is closed. The EventBus is synchronous and in-process. Runtime databases aren't version-controlled. Some of these are feasibility calls, some are deliberate boundaries on what the system claims to be — in practice they're the same list.
 
 ## Acceptance criteria and traceability
 
@@ -239,37 +239,37 @@ The solution uses Python/FastAPI, SQLAlchemy, Pydantic, SQLite, a static browser
 | Conflicting decision | Submit different second decision | Controlled conflict; state unchanged | Conflict tests |
 | Restart/resume | Stop at wait, recreate process, decide | Same run resumes and reaches `AUTHORIZED` | Two real-Uvicorn tests |
 
-Traceability is bidirectional at the practical level: requirements point to components/tests, and the report's algorithm table points back to source and UML. Static source inspection supports structural claims but does not replace executed acceptance tests.
+The traceability runs both ways in practice: requirements point down to the code and tests that satisfy them, and the algorithm table later in this report points back up to source files and UML figures. Reading the source tells you the structure is right; it doesn't replace actually running the acceptance tests, which is why both kinds of evidence appear throughout.
 
 # Development process and project control
 
 ## Solo incremental method
 
-The work used a solo incremental method influenced by Scrum concepts without pretending that one student formed a Scrum team. There were no claimed daily standups, stakeholder interviews, or formal sprint ceremonies. A product backlog, Definition of Done, risk register, evidence register, and change record were used to keep implementation and documentation aligned.
+I worked incrementally, borrowing Scrum concepts where they made sense, without pretending one person constitutes a Scrum team — there were no daily standups, no stakeholder interviews, no formal sprint ceremonies to report, because none of those happened. What I did keep were a product backlog, a Definition of Done, a risk register, an evidence register, and a change record, so implementation and documentation wouldn't drift apart from each other.
 
-The Definition of Done required behavior, tests, source/doc consistency, clean dependency direction, reproducible startup, and evidence appropriate to the change. Git provided configuration management. A named branch and atomic commits made the migration and final reconciliation reviewable. CR-003 records the final product correction while preserving the evolution history.
+The Definition of Done asked for working behavior, tests, consistency between source and docs, a clean dependency direction, a reproducible startup, and evidence proportional to the size of the change. Git served as configuration management: a named branch and atomic commits kept the migration and the final reconciliation reviewable after the fact. CR-003 records the final product correction while keeping the earlier evolution visible rather than erasing it.
 
-## Four truthful increments
+## Four honest increments
 
-### Increment 1 - Generic workflow core
+### Increment 1 — Generic workflow core
 
-**Goal:** demonstrate a reusable conditional workflow engine. **Work/design:** define immutable task/transition types, graph rules, deterministic resolver, attempts, trace, and isolated runs. **Implementation:** domain modules and persistence-backed runtime. **Tests:** validator, resolver, retry, and isolation cases. **Review result:** the technical mechanisms worked, but the product value was difficult to explain through abstract nodes. **Retrospective:** the next increment needed a recognizable requester, decision, and useful result. **Increment result:** a reusable core worth preserving, not a complete product story.
+My goal here was a reusable conditional workflow engine, so I defined immutable task and transition types, the graph rules, a deterministic resolver, attempts, trace, and isolated runs, and built domain modules over a persistence-backed runtime with tests for the validator, resolver, retry, and isolation. It worked — but reviewing it honestly, the product value was hard to explain through abstract nodes with no recognizable business meaning. I came out of this increment convinced the next one needed a real requester, a real decision, and a result someone would actually want. What I kept from it was a solid reusable core, not yet a product anyone could explain in one sentence.
 
-### Increment 2 - Human lifecycle and dual control
+### Increment 2 — Human lifecycle and dual control
 
-**Goal:** make time and control ownership explicit. **Work/design:** introduce persistent cursor state, approval work, same-run resume, orchestration, and run-scoped choreography. **Implementation:** approval services, coordinator, synchronous EventBus strategy, state-version checks, and ordered trace. **Tests:** waiting/resume, idempotency/conflict, paired modes, and handler cleanup. **Review result:** the two complex functionalities became testable under shared semantics. **Retrospective:** technical parity still needed a clearer business scenario. **Increment result:** durable workflow behavior within one process.
+Here I made time and control ownership explicit: a persistent cursor state, approval work that survives a wait, same-run resume, orchestration, and run-scoped choreography, built out as approval services, a coordinator, the synchronous EventBus strategy, state-version checks, and an ordered trace, with tests for waiting/resume, idempotency/conflict, both modes in parallel, and handler cleanup. This is where the two complex functionalities became genuinely testable under shared semantics rather than just described. What was still missing was a business scenario clear enough to hang that technical parity on.
 
-### Increment 3 - Intermediate Invoice/PDF application
+### Increment 3 — Intermediate Invoice/PDF application
 
-**Goal:** attach workflow behavior to a concrete approval artifact. **Work/design:** an Invoice Approval direction introduced uploaded PDF handling. **Implementation/review:** it made input tangible but expanded evidence around file safety, parsing, and storage. **Retrospective:** those concerns dominated the explanation and distracted from workflow management. **Increment result:** useful feedback and a historical intermediate direction, later removed from the active product.
+I tried attaching the workflow behavior to a concrete artifact by building an Invoice Approval direction with uploaded PDF handling. It made the input tangible, but it dragged in a whole second set of concerns — file safety, parsing, storage — that had nothing to do with workflow management and started to dominate the explanation instead of supporting it. I kept the lesson and dropped the direction; it's preserved here as an honest record of where the project went before I pulled it back.
 
-### Increment 4 - Purchase Request product and reconciliation
+### Increment 4 — Purchase Request product and reconciliation
 
-**Goal:** deliver an understandable structured reference workflow without file-processing distractions. **Work/design:** select Purchase Request Approval, retain the workflow core, add structured domain validation, internal authorization/notification effects, four browser views, closed designer, and comprehensive evidence. **Tests:** 98 final tests across domain, application, persistence, presentation, restart, and deployment. **Review result:** the active system and source behavior align with the reference workflow. **Retrospective:** documentation required an additional evidence-focused pass because mechanical terminology changes had left contradictions. **Increment result:** the final implementation and reconciled report represented here.
+The goal for this increment was a structured reference workflow I could explain without any file-processing detour: keep the workflow core, add structured domain validation, internal authorization and notification effects, four browser views, the closed designer, and evidence to back all of it. By the end there were 98 passing tests across domain, application, persistence, presentation, restart, and deployment, and the running system matched what this report describes. The one thing that needed a second pass afterward was the documentation itself — enough terminology had shifted mechanically along the way that it had picked up small contradictions, and I went back through to reconcile them. What's left is the implementation and the report you're reading now.
 
 ## Configuration and change management
 
-The repository records requirements, ADRs, PlantUML sources, rendered SVGs, report source, build script, and final PDF. Runtime databases and caches are excluded from commits. Immutable runtime revisions provide product-level configuration management: a run never references a mutable draft, so later edits cannot reinterpret previous history.
+The repository carries requirements, ADRs, PlantUML sources, rendered SVGs, the report source, the build script, and the final PDF. Runtime databases and caches stay out of version control. Immutable revisions do most of the configuration-management work at the product level on their own: a run never points at a mutable draft, so an edit made later can never quietly change what an earlier run meant.
 
 ## Risks and mitigations
 
@@ -286,7 +286,7 @@ The repository records requirements, ADRs, PlantUML sources, rendered SVGs, repo
 
 # Evolution history
 
-The product evolution is evidence of requirements work rather than a reason to hide earlier decisions. The original generic demonstration emphasized engine behavior. Feedback showed that a viewer could not easily connect that behavior to an organizational benefit. The intermediate Invoice/PDF direction was a reasonable attempt to add context, but it introduced a second center of gravity: file processing. The final correction removed those active concerns and selected structured Purchase Request Approval.
+I don't see the pivots below as something to hide — they're the clearest evidence I have that the requirements work actually happened. The original generic demonstration was built to show engine behavior, and feedback made it obvious that a viewer couldn't connect that behavior to any organizational benefit on their own. The Invoice/PDF direction that followed was a reasonable attempt to fix that by giving the input something tangible, but it created a second center of gravity — file processing — that competed with the workflow story instead of supporting it. The final correction dropped that and settled on structured Purchase Request Approval.
 
 | Core element | Final disposition | Reason |
 |---|---|---|
@@ -302,49 +302,57 @@ The product evolution is evidence of requirements work rather than a reason to h
 | Purchase Authorization/Internal Notification | Added | Provide useful bounded outcomes |
 | Four-view UI | Added/reframed | Leads with user work and result |
 
-CR-003 is the authoritative evolution record. Final academic acceptance remains the professor's decision.
+CR-003 is the authoritative record of this evolution. Whether the final result satisfies the course is, as always, the professor's call to make.
 
 # Product description
 
-The browser client is one page organized as four numbered views. **Submit Request** captures the business fields and starts a run. **Approver Inbox** lists pending work and shows request context before the decision. **Run Status / History** loads the authoritative projection and optional technical trace. **Workflow Designer** creates and validates bounded drafts and activates immutable revisions.
+The browser client is a single page built around four numbered views. **Submit Request** takes the business fields and starts a run. **Approver Inbox** lists the pending work and gives the approver context before they decide. **Run Status / History** loads the authoritative projection plus an optional technical trace. **Workflow Designer** creates and validates bounded drafts and activates immutable revisions.
 
-Execution mode and deterministic failure choice are inside a collapsed **Demonstration Controls** section. This placement is intentional. A normal user first sees the request and useful outcome; examination mechanisms remain available without being presented as everyday business functionality.
+Execution mode and the deterministic failure choice sit inside a collapsed **Demonstration Controls** section on purpose — a normal user should see their request and its outcome first, while the examination controls stay reachable without being presented as everyday business functionality.
 
-The API boundary mirrors these tasks. `POST /api/requests` creates a request and run. `GET /api/approvals` lists pending work; `GET /api/approvals/{id}` returns context; `POST /api/approvals/{id}/decision` commits a decision. `GET /api/runs/{run_id}` returns status/history. `/api/workflows` routes manage drafts, validation, activation, and revision reading.
+![Submit Request: the structured business fields a requester fills in to start a run. Live screenshot.](report-assets/ui-submit-request.png)
 
-Figure 2 shows the implemented component responsibilities.
+![Approver Inbox listing pending work and the decision context for the selected item. Live screenshot.](report-assets/ui-approver-inbox.png)
+
+The API mirrors these same four tasks. `POST /api/requests` creates a request and its run. `GET /api/approvals` lists pending work; `GET /api/approvals/{id}` returns one item's context; `POST /api/approvals/{id}/decision` commits a decision. `GET /api/runs/{run_id}` returns status and history. Everything under `/api/workflows` manages drafts, validation, activation, and reading back an activated revision.
+
+Figure 2 shows how these responsibilities are actually split up in the running system.
 
 ![Figure 2. Modular-monolith component view.](architecture/uml/rendered/component-view.svg)
 
 # Reference workflow behavior
 
-The default workflow contains four tasks. `REQUEST_VALIDATION` is the start. On success it reaches `HUMAN_APPROVAL`; on validation failure it follows the configured negative route or terminates according to the revision. Approval success reaches `PURCHASE_AUTHORIZATION`; rejection supplies failure routing and skips authorization. Successful authorization reaches `CREATE_NOTIFICATION`. Exhausted authorization failure applies the manual-action state before final failure routing.
+The default workflow has four tasks. `REQUEST_VALIDATION` is the start: on success it moves to `HUMAN_APPROVAL`, on failure it follows whatever negative route the revision defines or terminates. Approval success moves to `PURCHASE_AUTHORIZATION`; rejection routes to failure and skips authorization entirely. A successful authorization reaches `CREATE_NOTIFICATION`. If authorization keeps failing past its retry bound, the run passes through the manual-action state before final failure routing takes over.
 
 ## Normal approval
 
-A valid request creates run/cursor state. Validation records an automatic attempt and succeeds. Human approval creates a persistent work item and returns control. Approval commits the decision and resumes the cursor. Purchase Authorization succeeds, Internal Notification is recorded, and the run reaches successful terminal state with request state `AUTHORIZED`.
+A valid request creates the run and cursor state. Validation records one automatic attempt and succeeds. Human approval opens a persistent work item and hands control back. Once the decision comes in, it's committed and the cursor resumes. Authorization succeeds, the notification is recorded, and the run reaches its successful terminal state with `AUTHORIZED` as the request state.
+
+![Run Status view after approval: AUTHORIZED, the authorization identifier, the notification, and the full ordered trace. Live screenshot.](report-assets/ui-run-authorized.png)
 
 ## Rejection
 
-The same submission and wait occur. The approver selects reject and supplies a reason. The decision maps to workflow failure semantics; authorization is not executed. The request remains `REJECTED`, notification records the controlled result, and trace entries show decision, resume, routing, and terminal behavior.
+The submission and the wait look identical to the approval case. This time the approver rejects and supplies a reason. That decision maps straight to workflow failure semantics, so authorization never runs. The request settles at `REJECTED`, the notification records that outcome, and the trace shows the decision, the resume, the routing, and the terminal step in order.
 
 ## Invalid request
 
-Domain validation reports one or more deterministic issues. The validation executor returns business failure, which is never retried. No approval work item is created. The configured route records notification/terminal behavior and the request becomes `VALIDATION_FAILED`.
+Domain validation reports whatever issues it finds — often more than one at once. The validation executor returns a business failure, and business failures are never retried. No approval work item ever gets created. The configured route handles notification and termination, and the request ends at `VALIDATION_FAILED`.
 
 ## Retry then success
 
-The deterministic adapter causes the first authorization execution to return retryable technical failure. The attempt is committed. Because the count is below the bound, the retry policy keeps the cursor on the same task and records retry without selecting a transition. The next attempt succeeds, effects are applied, and normal success routing continues.
+The deterministic adapter makes the first authorization attempt fail with a retryable technical error. That attempt gets committed as-is. Since the attempt count is still below the bound, the retry policy keeps the cursor on the same task and records the retry without selecting any transition. The second attempt succeeds, the effects apply, and the run continues down the normal success path.
+
+![Run Status view for the retry-then-success scenario: attempt 1 FAILURE/RETRYABLE_TECHNICAL, a RETRY_OBSERVATION, then attempt 2 SUCCESS and AUTHORIZED. Live screenshot.](report-assets/ui-run-retry.png)
 
 ## Retry exhaustion
 
-The adapter returns retryable failure for every allowed authorization attempt. When the completed count reaches the bound, no further retry occurs. The business effect policy exposes `NEEDS_MANUAL_ACTION`, then final failure enters ordinary resolver precedence. The run cannot loop forever.
+Here the adapter keeps returning retryable failure for every attempt the task is allowed. Once the completed count hits the bound, retry stops. The business-effect policy surfaces `NEEDS_MANUAL_ACTION`, and only then does final failure enter the ordinary resolver precedence. The run cannot spin forever waiting for an authorization that isn't coming.
 
 ## Restart and resume
 
-At human waiting, all authoritative state is committed and no subscriber is retained. A new application process uses the same database. The decision service loads the work item and cursor, commits the decision, and invokes the stored mode. The same run continues rather than creating a replacement run.
+At the moment a run starts waiting for human approval, everything authoritative is already committed and nothing is being held in memory — no subscriber, no open request. A brand-new application process, pointed at the same database, can pick it up: the decision service loads the work item and cursor, commits the decision, and re-enters whichever mode the run was stored under. The run that resumes is the same run, not a replacement.
 
-Figure 3 gives the persistent lifecycle.
+Figure 3 lays out this persistent lifecycle end to end.
 
 ![Figure 3. Workflow run and cursor lifecycle.](architecture/uml/rendered/run-state.svg)
 
@@ -352,41 +360,43 @@ Figure 3 gives the persistent lifecycle.
 
 ## Modular-monolith rationale
 
-One modular process is appropriate because the academic comparison concerns control style, not network distribution. Splitting the product into services would add deployment, contracts, failure modes, and broker operations without creating stronger evidence for the implemented business rules. Layer and module boundaries still separate presentation, application, domain, and persistence responsibilities.
+I kept this as one process because the academic comparison here is about control style, not about network distribution — splitting it into services would have added deployment complexity, contracts, new failure modes, and broker operations without making the business-rule evidence any stronger. The layers still separate presentation, application, domain, and persistence responsibilities from each other; it's just that a process boundary isn't the thing enforcing that separation.
 
-The principal trade-off is enforcement. Process boundaries cannot enforce module ownership, so source organization, ports, tests, and review must prevent routes or infrastructure adapters from owning domain policy. For the bounded project, this cost is lower than operating a distributed topology.
+That's actually the trade-off worth naming: without a process boundary, nothing stops a route or an infrastructure adapter from reaching in and owning domain policy except source organization, ports, tests, and review discipline. For a project this size, that cost is smaller than the cost of running a distributed topology, so I accepted it.
 
 ## Persistence and transaction boundaries
 
-Figure 4 shows conceptual ownership. Workflow drafts are mutable; revisions are immutable. A run points to one revision and one Purchase Request. Cursor, attempts, approval records, effects, and trace belong to the run/request context, never to the reusable definition.
+Figure 4 shows the conceptual ownership. Drafts are mutable; revisions, once activated, are not. A run points at exactly one revision and one Purchase Request, and everything downstream of that — cursor, attempts, approval records, effects, trace — belongs to the run/request context, never back to the reusable definition.
 
 ![Figure 4. Conceptual domain and persistence ownership.](architecture/uml/rendered/domain-model.svg)
 
-Each observable step commits related state and trace together. Submission commits request, run, cursor, and initial trace. An automatic step commits attempt, effect, cursor, and observations. Entering approval commits work item and waiting state. A decision commits the authoritative choice and resumed cursor. This design reduces partial-state explanations and supports recovery from the cursor.
+Every observable step commits its state and its trace entry together, in the same unit of work. Submission commits the request, the run, the cursor, and the initial trace in one go. An automatic step commits its attempt, its effect, the updated cursor, and its observations together. Entering approval commits the work item and the waiting state together. A decision commits the authoritative choice and the resumed cursor together. The point of doing it this way is that there's never a "partial" state to explain — recovery just reads the cursor.
 
 ## EventBus semantics
 
-The EventBus is a small synchronous infrastructure adapter. The choreographer registers a callback by run key, publishes `AdvanceRun`, and removes the handler when the active processing scope ends. Event data carries stable identity/version information; it is not a copy of authoritative business state. Committed SQLite state is read for each advancement.
+The EventBus is a small, synchronous piece of infrastructure — nothing more. The choreographer registers a callback keyed by run, publishes an `AdvanceRun` event, and removes that handler the moment its processing scope ends. The event itself only carries stable identity and version information, never a copy of business state; every advancement re-reads the committed SQLite state fresh.
 
-This provides event-reaction structure suitable for comparing choreography with orchestration inside one process. It does not provide a queue, persistence, delivery acknowledgment, replay, consumer groups, backpressure, independent deployment, or distributed transaction semantics.
+That's enough structure to compare choreography with orchestration inside one process, and that's all it's meant to be. It is not a queue, has no persistence of its own, no delivery acknowledgment, no replay, no consumer groups, no backpressure handling, and no distributed transaction semantics.
 
 ## Deployment
 
-Figure 5 shows the only supported topology: browser, one FastAPI application, and SQLite. Local startup and Compose use the same boundary. Compose adds a named volume for the database, not additional services.
+Figure 5 shows the only topology this project supports: a browser, one FastAPI application, and SQLite. Local startup and the Compose file describe the exact same boundary — Compose just adds a named volume for the database, not any additional service.
 
 ![Figure 5. Optional single-service deployment.](architecture/uml/rendered/deployment-view.svg)
 
 ## ADR summary
 
-Nine ADRs record the modular monolith, definition/revision/run ownership, shared result/retry/resolver contract, orchestration waiting, transient EventBus choreography, persistent cursor/atomic steps, deterministic fault adapter, structured request boundary, and closed designer. ADR status means implemented project decision; it does not imply separate professor approval.
+Nine ADRs record the decisions that shaped this: the modular monolith, definition/revision/run ownership, the shared result/retry/resolver contract, orchestration waiting, transient EventBus choreography, the persistent cursor and atomic steps, the deterministic fault adapter, the structured request boundary, and the closed designer. An ADR status means I made and implemented that decision — it doesn't mean the professor separately approved it.
 
 # Workflow Designer
 
-The designer proves that the workflow core is reusable beyond one hard-coded sequence while keeping configuration safe. A process owner can create a draft, provide a workflow name, define tasks with stable keys and display names, select one start task, choose from four task types, set positive attempt bounds for automatic tasks, and define directed transitions using `SUCCESS`, `FAILURE`, or `ALWAYS`.
+The point of the designer is to prove the workflow core is reusable beyond one hard-coded sequence, without opening the door to unsafe configuration. A process owner can create a draft, name it, define tasks with stable keys and display names, pick exactly one start task, choose from the four available task types, set a positive attempt bound on automatic tasks, and wire up directed transitions using `SUCCESS`, `FAILURE`, or `ALWAYS`.
 
-Validation rejects zero or multiple starts, unknown task types, invalid keys, missing references, self-edges, cycles, unreachable tasks, invalid terminals, ambiguous equal-precedence edges, missing/invalid automatic attempt bounds, and attempt bounds on human approval. Issues are returned before activation. Activation snapshots accepted content into an immutable revision. Runs reference the snapshot rather than the mutable draft.
+![Workflow Designer showing the reference draft: a task table (key, name, type, start marker, attempt bound) and a transition table (from, to, condition). The start marker is a radio input, so more than one start task cannot even be selected in the browser. Live screenshot.](report-assets/ui-workflow-designer.png)
 
-The designer is not a general low-code product. It has no drag-and-drop BPMN parity, arbitrary scripts, expressions, plugins, user-supplied executors, nested workflows, cycles, timers, parallel gateways, compensation, or service discovery. The closed boundary is an engineering feature: it makes every executable type known to validation and the executor registry.
+Validation catches zero or multiple start tasks, unknown task types, invalid keys, missing references, self-edges, cycles, tasks nothing can reach, missing terminal paths, two edges tied on precedence, missing or invalid attempt bounds, and an attempt bound sitting on a human approval task where it doesn't belong. All of that gets reported before activation, not after. Activating a draft snapshots its accepted content into an immutable revision, and every run from then on references that snapshot — never the mutable draft it came from.
+
+To be clear about what this isn't: it's not a general low-code product. There's no drag-and-drop BPMN parity, no arbitrary scripts or expressions, no plugins, no user-supplied executors, no nested workflows, no cycles, no timers, no parallel gateways, no compensation, no service discovery. Keeping it closed is the actual engineering feature here — every executable type the system can run is known to both the validator and the executor registry, with nothing left unaccounted for.
 
 # Custom algorithms and invariants
 
@@ -401,29 +411,29 @@ The designer is not a general low-code product. It has no drag-and-drop BPMN par
 | Decision idempotency/conflict | Input work item and choice; output existing/new result or conflict | One authoritative choice; identical replay cannot advance twice | approval domain/service, approval tests | Figure 4 |
 | Run/revision isolation | Input run creation/step; output run-owned records | Run keeps one immutable revision; records never cross run identity | constructor/persistence services and tests | Figure 4 |
 
-Figure 6 makes the retry-before-routing order explicit.
+Figure 6 is the one I'd point to first in a defense — it lays out the exact order retry and routing happen in.
 
 ![Figure 6. Graph execution, retry, routing, and human-wait activity.](architecture/uml/rendered/routing-retry-activity.svg)
 
 ## Graph validation
 
-Validation protects runtime assumptions before persistence exposes an active revision. It normalizes task types and conditions, checks structural constraints, computes reachability, detects directed cycles, and checks outgoing transition precedence. The main path returns no issues and activation may proceed. The failure path returns deterministic issues; no run or active revision is created from the rejected specification.
+Validation exists to protect runtime assumptions before a revision ever goes active. It normalizes task types and conditions, checks the structural constraints, computes reachability, walks the graph for directed cycles, and checks that outgoing transitions don't tie on precedence. Clean input returns no issues and activation proceeds; anything else comes back as a deterministic list of what's wrong, and nothing gets activated from a rejected specification.
 
 ## Deterministic resolver
 
-The resolver is intentionally small and independent of Purchase Request semantics. Given a task result and outgoing transitions, it selects the unique matching outcome-specific edge. If absent, it selects a unique `ALWAYS` edge. If no eligible edge exists, it returns successful or unsuccessful terminal according to the final result. Retry and business effects happen outside the resolver, preventing coordination modes from acquiring different routing rules.
+I kept the resolver deliberately small and completely unaware of Purchase Request semantics. Given a task result and its outgoing transitions, it picks the one edge that matches the specific outcome. If there isn't one, it falls back to a unique `ALWAYS` edge if one exists. If neither exists, it returns a successful or unsuccessful terminal based on the final result. Retry and business effects both happen outside the resolver on purpose — otherwise the two coordination modes could end up disagreeing about routing.
 
 ## Bounded retry
 
-Retry receives task type, failure classification, completed-attempt count, and configured maximum attempts. Human work is never retried automatically. Business and non-retryable failures route immediately. A retryable technical failure repeats only when another attempt remains. Exhaustion returns control to normal failure routing. The invariant is finite execution for each automatic task under the configured bound.
+Retry takes the task type, the failure classification, how many attempts have completed, and the configured maximum. Human work is never retried automatically — that path doesn't even reach this logic. Business failures and non-retryable technical failures route immediately, no second attempt offered. Only a retryable technical failure gets repeated, and only while another attempt is still available; once the bound is hit, control goes back to ordinary failure routing. The invariant this guarantees is simple: every automatic task finishes in a bounded number of steps.
 
 ## Persistent approval
 
-Reaching human approval does not create an automatic attempt. The service creates or retrieves the work item, records waiting state, and commits. Decision validation distinguishes approval note and rejection reason. An identical replay returns the established decision result. A different choice conflicts. After commit, the cursor is ready and the coordinator re-enters the stored strategy.
+Reaching human approval doesn't create an automatic attempt — that's a deliberate distinction from every other task type. The service creates or retrieves the work item, records the waiting state, and commits. Decision validation keeps an approval note and a rejection reason as separate things. Replay the same decision and you get the already-established result back unchanged; submit a different one and it conflicts instead of silently overwriting. Once a decision commits, the cursor goes back to ready and the coordinator re-enters whichever strategy the run was already using.
 
 ## Isolation and revision consistency
 
-Every runtime query and mutation carries run identity; relevant uniqueness rules include run/task keys. A run's revision identifier never changes. Therefore later draft edits can create a new revision without changing the meaning of old attempts or traces. This is essential for audit interpretation.
+Every read and every write in this system carries a run identity with it, and the uniqueness rules — run keys, task keys — enforce that at the data layer too. A run's revision identifier never changes after creation. That means a later edit to the draft can only ever produce a new revision; it can never reach back and change what an old attempt or an old trace entry meant, which is exactly the guarantee audit interpretation needs.
 
 # Orchestration and choreography comparison
 
@@ -439,15 +449,15 @@ Every runtime query and mutation carries run identity; relevant uniqueness rules
 | Main risk | Central coordinator can accumulate responsibility | Handler lifecycle/version mistakes can cause leaks or stale work |
 | Not claimed | Distributed scheduler | Durable/distributed messaging |
 
-Figure 7 shows central control. The HTTP request finishes when the run waits; approval later restarts the loop from persisted state.
+Figure 7 shows the central-control version: the HTTP request returns the moment the run starts waiting, and approval later restarts the loop from whatever was persisted.
 
 ![Figure 7. Orchestration sequence with persistent human wait.](architecture/uml/rendered/orchestration-sequence.svg)
 
-Figure 8 shows the event-reaction variant. Commit precedes the next trigger, and no handler survives the waiting period.
+Figure 8 shows the event-reaction version instead. Every commit happens before the next trigger fires, and no handler survives across the waiting period.
 
 ![Figure 8. Choreography sequence with transient run-scoped EventBus.](architecture/uml/rendered/choreography-sequence.svg)
 
-The exact comparison claim is semantic parity for the repository's reference workflows, inputs, decisions, and deterministic fault schedules. It is not a general proof that orchestration and choreography are interchangeable in distributed systems.
+What I'm actually claiming here is semantic parity for this repository's own reference workflows, inputs, decisions, and deterministic fault schedules — nothing broader than that. I am not claiming orchestration and choreography are generally interchangeable once you're talking about distributed systems, and I'd push back on that reading if it came up during defense.
 
 # Verification and evidence
 
@@ -457,7 +467,7 @@ The exact comparison claim is semantic parity for the repository's reference wor
 |---|---|---|
 | Implemented and tested | Executed automated evidence asserts behavior | resolver, retry, approval, paired modes, restart |
 | Implemented and inspected | Source/configuration directly shows structure | API paths, task catalog, SQLite models |
-| Manually verified | A human/agent inspection was performed | report render, headings, current UI labels |
+| Manually verified | Verified directly by inspection rather than an automated test | report render, headings, current UI labels |
 | Documented limitation | Deliberately absent or unverified | authentication, distribution, performance |
 | Historical decision | Earlier direction preserved for evolution | generic prototype, Invoice/PDF increment |
 | Professor-approved direction | Explicitly supplied project fact | WMS direction and two complex functionalities |
@@ -476,61 +486,61 @@ The exact comparison claim is semantic parity for the repository's reference wor
 | Quality | dependencies and repository constraints | Included in 98 passed |
 | **Total** | Cache-suppressed unchanged repository suite | **98 passed** |
 
-The authoritative final command is:
+The command that produces this number is:
 
 ```bash
 PYTHONDONTWRITEBYTECODE=1 python -m pytest -p no:cacheprovider -q
 ```
 
-The exact result is reported only after executing the unchanged suite. Test quantity is not used as a proxy for quality; the business matrix, negative cases, restart behavior, and source boundaries explain what the number contains.
+I'd rather report the exact count from actually running the unchanged suite than round it or estimate it. And the count on its own isn't the point — what matters is what it's made of: the business matrix, the negative cases, restart behavior, and the source-level boundaries the tests enforce, all described above.
 
 ## Restart evidence
 
-The restart tests use a temporary isolated SQLite database and real Uvicorn subprocesses rather than reconstructing application objects in one test process. Each test starts the server, submits a request, verifies waiting work, stops the process, launches a new server against the same database, submits the decision, and verifies that the same run reaches `AUTHORIZED`. One test uses orchestration and one choreography. This is recovery evidence for the local architecture, not high-availability evidence.
+The restart tests don't reconstruct application objects inside a single test process — they use a temporary, isolated SQLite database and a real Uvicorn subprocess. Each one starts the server, submits a request, confirms the work is waiting, stops the process entirely, launches a fresh server against that same database, submits the decision, and checks that the same run reaches `AUTHORIZED`. One test does this in orchestration mode, the other in choreography. This is evidence of recovery within this local architecture — it is not high-availability evidence, and I'm not presenting it as such.
 
 ## API and OpenAPI evidence
 
-OpenAPI inspection confirms 12 current paths including `/api/requests`, approval collection/detail/decision, run status, and workflow draft/validation/activation/revision endpoints. There is no legacy `/api/v3` runtime. Connected presentation tests exercise JSON payloads through the FastAPI boundary rather than only calling domain functions.
+OpenAPI inspection shows 12 current paths: `/api/requests`, the approval collection/detail/decision routes, run status, and the workflow draft/validation/activation/revision endpoints. There's no leftover `/api/v3` runtime anywhere. The connected presentation tests exercise real JSON payloads through the FastAPI boundary itself, not just the domain functions underneath it.
 
 ## UI evidence
 
-Source and local smoke inspection confirm the exact headings **1. Submit Request**, **2. Approver Inbox**, **3. Run Status / History**, and **4. Workflow Designer**, plus collapsed **Demonstration Controls**. The final reconciliation did not invent usability study results. New automated screenshots could not be captured through the isolated in-app-browser network while keeping the unauthenticated local API bound to loopback; therefore the report relies on current HTML/API evidence and does not present synthetic screenshots as manual evidence.
+Source inspection and a local smoke check confirm the exact headings — **1. Submit Request**, **2. Approver Inbox**, **3. Run Status / History**, **4. Workflow Designer** — plus the collapsed **Demonstration Controls** section. The screenshots placed throughout this report (Product description, Reference workflow behavior, Workflow Designer) are not mockups: each one was captured from the actual local application while it was running, against the reference workflow, using the same API calls a real submitter/approver would trigger. I did not invent any usability-study results while reconciling this report — the screenshots stand as inspection evidence of the current UI, not as a substitute for the user research this project never claims to have done.
 
 ## Docker and static verification
 
-`docker compose config --quiet` verifies Compose syntax and interpolation for the single service. It does not prove a production deployment. JavaScript syntax is checked with Node, `pip check` verifies installed dependency consistency, `git diff --check` detects whitespace errors, link/path validation checks repository references, and terminology search identifies obsolete active-language risks. These are supporting quality checks rather than business scenario tests.
+`docker compose config --quiet` checks Compose syntax and interpolation for the single service — it proves the file is valid, not that a production deployment would succeed. Beyond that: Node checks JavaScript syntax, `pip check` verifies installed dependency consistency, `git diff --check` catches whitespace errors, link and path validation checks repository references, and a terminology search flags language that's gone stale. These are supporting quality checks, not business-scenario tests, and I treat them that way.
 
 # Quality evaluation
 
 ## Correctness
 
-Correctness is supported by deterministic domain tests, business journeys, negative cases, and the shared semantic path. The most important design choice is that both modes call the same step service, resolver, retry policy, approval service, and persistence operations. This reduces the space in which parity can drift.
+Correctness rests on deterministic domain tests, the business journeys, the negative cases, and the fact that both coordination modes walk through the exact same shared semantic path. The design choice doing the most work here is that both modes call the same step service, resolver, retry policy, approval service, and persistence operations — there's very little surface area left where the two could quietly drift apart.
 
 ## Reliability and recovery
 
-Bounded attempts prevent infinite automatic retry. Persistent work avoids holding runtime resources while a person decides. State-version conflicts protect against stale advancement. Identical decision replay is idempotent. Real-process restart tests demonstrate recovery at the most important long-lived boundary. Reliability remains local to one application and SQLite; no redundant node or database failover exists.
+Bounded attempts rule out an infinite automatic retry loop. Persistent work means the system isn't holding any runtime resource hostage while a person decides. State-version conflicts catch stale advancement before it can do damage. Replaying an identical decision is idempotent. The real-process restart tests cover the long-lived boundary that matters most here. What reliability doesn't cover: this is one application and one SQLite database, with no redundant node and no failover if either goes down.
 
 ## Usability
 
-Available usability evidence is structural, not experimental. The page leads with the product name, structured request, pending work, and business result. Technical trace and failure controls are secondary/collapsed. Meaningful request context appears in approval work. No user interviews, task-completion measurements, accessibility audit, or comparative usability study were conducted, so none is claimed.
+What I have on usability is structural, not experimental. The page leads with the product name, the structured request, the pending work, and the business result; the technical trace and the failure controls sit secondary and collapsed; the context an approver needs shows up right where they need to decide. There's no user interview, no task-completion measurement, no accessibility audit, and no comparative usability study behind any of that, so I'm not claiming any of those things.
 
 ## Maintainability
 
-Domain algorithms are small and testable without HTTP or database dependencies. Application services coordinate ports and controlled effects. Infrastructure implements synchronous events and persistence. A closed enum-based task catalog makes executor completeness checkable. Immutable revisions protect historical interpretation. The main maintainability risk is the size of persistence/application coordination required for atomic state and trace; focused tests and explicit ownership mitigate it.
+The domain algorithms are small and testable on their own, with no HTTP or database dependency to drag along. Application services coordinate ports and controlled effects. Infrastructure handles the synchronous events and persistence. Because the task catalog is a closed enum, executor completeness is something you can actually check rather than hope for. Immutable revisions protect how history gets interpreted later. If there's a maintainability risk worth naming, it's the amount of persistence/application coordination needed to keep state and trace atomic — focused tests and clear ownership are what keep that manageable.
 
 ## Security
 
-Input validation and closed task types reduce accidental misuse, but the application has no authentication, RBAC, CSRF strategy, secret management design, rate limiting, audit access control, security headers review, penetration testing, or threat-model validation. It must not be exposed as a production service without substantial work.
+Input validation and a closed task catalog cut down on accidental misuse, but that's where it stops: there's no authentication, no RBAC, no CSRF strategy, no secret-management design, no rate limiting, no audit access control, no security-headers review, no penetration testing, and no threat-model validation behind any of it. This should not go anywhere near a production deployment without a lot more work first.
 
 ## Scalability
 
-No scalability claim is made. SQLite, synchronous EventBus dispatch, and one FastAPI service fit demonstration and automated testing. There are no load-test numbers, throughput measurements, queue-depth observations, or horizontal scaling experiments. A future distributed design would require different event durability, idempotency, partitioning, and operational evidence.
+I'm not making a scalability claim here at all. SQLite, synchronous EventBus dispatch, and a single FastAPI service are enough for demonstration and automated testing and nothing more was measured. There are no load-test numbers, no throughput measurements, no queue-depth observations, no horizontal-scaling experiments. A distributed design, if it were ever needed, would require rethinking event durability, idempotency, and partitioning from scratch — none of which this report attempts.
 
 # Reuse disclosure
 
-FastAPI provides HTTP routing and dependency injection; Uvicorn provides the ASGI server; Pydantic validates transport shapes; SQLAlchemy maps persistence; SQLite stores local state; pytest and HTTPX support tests; Docker/Compose provide optional packaging; PlantUML renders diagrams; Pandoc and WeasyPrint build this report. These tools are general-purpose dependencies.
+FastAPI handles HTTP routing and dependency injection; Uvicorn is the ASGI server; Pydantic validates the transport shapes; SQLAlchemy maps persistence; SQLite stores local state; pytest and HTTPX drive the tests; Docker/Compose provide optional packaging; PlantUML renders the diagrams; Pandoc and WeasyPrint build this report. All of that is general-purpose tooling.
 
-They do not provide this project's graph rules, transition precedence, retry policy, cursor lifecycle, work-item semantics, decision conflict behavior, revision model, run isolation, audit vocabulary, scenario matrix, or two control strategies. Camunda, n8n, and Temporal were behavioral references only; no external workflow engine, product workflow, UI, or source code is embedded. The full disclosure is maintained in `docs/REUSE_DISCLOSURE.md`.
+None of it supplies this project's graph rules, transition precedence, retry policy, cursor lifecycle, work-item semantics, decision-conflict behavior, revision model, run isolation, audit vocabulary, scenario matrix, or the two control strategies — those are mine. Camunda, n8n, and Temporal were behavioral references only, consulted for ideas; no engine, workflow, UI, or line of source code from any of them is embedded here. The full disclosure lives in `docs/REUSE_DISCLOSURE.md`.
 
 # Limitations and future work
 
@@ -549,15 +559,15 @@ They do not provide this project's graph rules, transition precedence, retry pol
 | Deterministic examination faults | Not representative of real integrations | Adapter contract tests and controlled integration sandbox |
 | Old Invoice data not migrated | Previous development DB is incompatible | Migration only if historical data becomes a real requirement |
 
-Future work should start with identity/security and requirements for real organizational integration, not with adding visually impressive but unsupported workflow features.
+If I were continuing this project, I'd start with identity and security and with real requirements for organizational integration — not with more workflow features that look impressive in a demo but aren't backed by evidence.
 
 # Conclusion
 
-The final Event-Driven Workflow Management System turns a technical workflow core into an understandable bounded product. A requester supplies structured purchase information, a manager receives persistent work, and the system resumes the same run to produce an internal authorization or controlled negative result with ordered evidence. Graph validation, deterministic routing, bounded retry, immutable revisions, run isolation, idempotent decisions, and restart recovery make the behavior explainable across failure and time.
+What this project turns into, by the end, is a technical workflow core wrapped in a product a person can actually follow: a requester submits structured purchase information, a manager gets persistent work to act on, and the system resumes that same run to produce either an internal authorization or a controlled negative result, with an ordered trail of evidence either way. Graph validation, deterministic routing, bounded retry, immutable revisions, run isolation, idempotent decisions, and restart recovery are what make that behavior explainable — not just now, but after a failure and after time has passed.
 
-Orchestration and choreography are compared fairly because business semantics and persistence are shared. The orchestrator centralizes advancement; the choreographer reacts through a temporary synchronous run-scoped handler. The report does not extend that result to distributed systems.
+Orchestration and choreography get compared fairly here because they share business semantics and persistence; only the control ownership differs. The orchestrator centralizes advancement, the choreographer reacts through a temporary, synchronous, run-scoped handler. I'm not extending that result to distributed systems, and I don't think the evidence here would support doing so.
 
-The project remains appropriately limited for one student and approximately 100 hours. Its strongest evidence is not feature breadth but correspondence between problem, requirements, custom logic, scenarios, tests, architecture, and stated limitations. Final academic acceptance remains the professor's decision.
+This stayed appropriately sized for one student and roughly 100 hours. What I'd point to as its strongest evidence isn't breadth of features — it's how closely the problem, the requirements, the custom logic, the test scenarios, the architecture, and the stated limitations all line up with each other. Whether that's enough is, as it should be, the professor's decision to make.
 
 # References
 

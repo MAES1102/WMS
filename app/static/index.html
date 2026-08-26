@@ -4,7 +4,7 @@
   <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
   <title>Event-Driven Workflow Management System</title>
   <style>
-    :root{font-family:Inter,system-ui,sans-serif;color:#18332b;background:#f3f7f5}body{margin:0}header{background:#174f3f;color:white;padding:1.4rem 5vw}main{max-width:1100px;margin:auto;padding:1.5rem;display:grid;gap:1.3rem}.card{background:white;border:1px solid #cbdad4;border-radius:12px;padding:1.2rem;box-shadow:0 2px 8px #173f3214}h1{margin:.1rem 0;font-size:1.8rem}h2{margin-top:0}.grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:.8rem}label{display:grid;gap:.25rem;font-weight:650}input,textarea,select,button{font:inherit;padding:.65rem;border:1px solid #8ca79e;border-radius:7px}textarea{min-height:80px}button{background:#176b50;color:white;border:0;font-weight:700;cursor:pointer}button.secondary{background:#46625a}.actions{display:flex;gap:.6rem;flex-wrap:wrap}.hidden{display:none}.status{padding:.8rem;background:#edf7f3;border-left:4px solid #176b50;white-space:pre-wrap}.error{background:#fff0ee;border-color:#ad3026}table{width:100%;border-collapse:collapse}th,td{text-align:left;padding:.55rem;border-bottom:1px solid #d8e3df;font-size:.9rem}details{border:1px solid #d8e3df;border-radius:8px;padding:.8rem}summary{font-weight:750;cursor:pointer}.wide{grid-column:1/-1}@media(max-width:700px){.grid{grid-template-columns:1fr}}
+    :root{font-family:Inter,system-ui,sans-serif;color:#18332b;background:#f3f7f5}body{margin:0}header{background:#174f3f;color:white;padding:1.4rem 5vw}main{max-width:1100px;margin:auto;padding:1.5rem;display:grid;gap:1.3rem}.card{background:white;border:1px solid #cbdad4;border-radius:12px;padding:1.2rem;box-shadow:0 2px 8px #173f3214}h1{margin:.1rem 0;font-size:1.8rem}h2{margin-top:0}.grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:.8rem}label{display:grid;gap:.25rem;font-weight:650}input,textarea,select,button{font:inherit;padding:.65rem;border:1px solid #8ca79e;border-radius:7px}textarea{min-height:80px}button{background:#176b50;color:white;border:0;font-weight:700;cursor:pointer}button.secondary{background:#46625a}.actions{display:flex;gap:.6rem;flex-wrap:wrap}.hidden{display:none}.status{padding:.8rem;background:#edf7f3;border-left:4px solid #176b50;white-space:pre-wrap}.error{background:#fff0ee;border-color:#ad3026}table{width:100%;border-collapse:collapse}th,td{text-align:left;padding:.55rem;border-bottom:1px solid #d8e3df;font-size:.9rem}details{border:1px solid #d8e3df;border-radius:8px;padding:.8rem}summary{font-weight:750;cursor:pointer}.wide{grid-column:1/-1}@media(max-width:700px){.grid{grid-template-columns:1fr}}h3{margin:.6rem 0 .2rem}.hint{font-size:.85rem;color:#46625a;margin:.1rem 0 .7rem}.table-wrap{overflow-x:auto}#tasks-table input:not([type=radio]),#tasks-table select,#transitions-table input,#transitions-table select{width:100%;box-sizing:border-box;padding:.4rem;min-width:6rem}#tasks-table td,#transitions-table td{vertical-align:middle}#tasks-table input[type=radio]{width:auto}#inbox-table tr.selected{background:#edf7f3}
   </style>
 </head>
 <body>
@@ -28,29 +28,97 @@
     </div></details>
   </section>
 
-  <section class="card"><h2>2. Approver Inbox</h2><button id="refresh-inbox" class="secondary">Refresh pending work</button><div id="inbox" class="status">No pending work loaded.</div><div id="decision-panel" class="hidden"><p id="approval-context"></p><textarea id="decision-text" placeholder="Optional approval note; rejection reason is required"></textarea><div class="actions"><button data-choice="APPROVE">Approve</button><button data-choice="REJECT" class="secondary">Reject</button></div></div></section>
+  <section class="card"><h2>2. Approver Inbox</h2><button id="refresh-inbox" type="button" class="secondary">Refresh pending work</button><div id="inbox" class="status">No pending work loaded.</div>
+    <div class="table-wrap"><table id="inbox-table" class="hidden"><thead><tr><th>Requester</th><th>Item / service</th><th>Amount</th><th></th></tr></thead><tbody id="inbox-body"></tbody></table></div>
+    <div id="decision-panel" class="hidden"><p id="approval-context"></p><textarea id="decision-text" placeholder="Optional approval note; rejection reason is required"></textarea><div class="actions"><button data-choice="APPROVE">Approve</button><button data-choice="REJECT" class="secondary">Reject</button></div></div></section>
 
-  <section class="card"><h2>3. Run Status / History</h2><div id="run-status" class="status">Submit a request or enter a run ID.</div><div class="actions"><input id="run-id" placeholder="Run ID"><button id="load-run" class="secondary">Load run</button></div><details><summary>Technical audit trace</summary><table><thead><tr><th>#</th><th>Kind</th><th>Task</th><th>Detail</th></tr></thead><tbody id="trace"></tbody></table></details></section>
+  <section class="card"><h2>3. Run Status / History</h2><div id="run-status" class="status">Submit a request or enter a run ID.</div><div class="actions"><input id="run-id" placeholder="Run ID"><button id="load-run" class="secondary">Load run</button></div><details id="trace-details"><summary>Technical audit trace</summary><table><thead><tr><th>#</th><th>Kind</th><th>Task</th><th>Detail</th></tr></thead><tbody id="trace"></tbody></table></details></section>
 
-  <section class="card"><h2>4. Workflow Designer</h2><p>Process owners can configure only four safe predefined task types. Arbitrary code, scripts, expressions and plugins are prohibited.</p><div class="actions"><select id="drafts"></select><button id="new-draft" class="secondary">New draft</button><button id="save-draft">Save draft</button><button id="validate-draft" class="secondary">Validate</button><button id="activate-draft">Activate revision</button></div><label>Workflow name<input id="workflow-name" value="Purchase Request Approval"></label><textarea id="workflow-json" spellcheck="false"></textarea><div id="designer-result" class="status">Load or create a bounded draft.</div></section>
+  <section class="card"><h2>4. Workflow Designer</h2><p>Process owners can configure only four safe predefined task types. Arbitrary code, scripts, expressions and plugins are prohibited.</p><div class="actions"><select id="drafts"></select><button id="new-draft" type="button" class="secondary">New draft</button><button id="save-draft" type="button">Save draft</button><button id="validate-draft" type="button" class="secondary">Validate</button><button id="activate-draft" type="button">Activate revision</button></div><label>Workflow name<input id="workflow-name" value="Purchase Request Approval" maxlength="120"></label>
+    <h3>Tasks</h3><p class="hint">Exactly one task is the start task. Only the Human Approval type may leave "Max attempts" empty.</p>
+    <div class="table-wrap"><table id="tasks-table"><thead><tr><th>Key</th><th>Name</th><th>Type</th><th>Start</th><th>Max attempts</th><th></th></tr></thead><tbody id="tasks-body"></tbody></table></div>
+    <div class="actions"><button id="add-task" type="button" class="secondary">Add task</button></div>
+    <h3>Transitions</h3><p class="hint">"From" and "To" must match a task key above. Two transitions leaving the same task cannot share the same condition.</p>
+    <div class="table-wrap"><table id="transitions-table"><thead><tr><th>From</th><th>To</th><th>Condition</th><th></th></tr></thead><tbody id="transitions-body"></tbody></table></div>
+    <div class="actions"><button id="add-transition" type="button" class="secondary">Add transition</button></div>
+    <datalist id="task-keys-list"></datalist>
+    <div id="designer-result" class="status">Load or create a bounded draft.</div></section>
 </main>
 <script>
 const $=id=>document.getElementById(id); let currentWork=null,currentVersion=null,currentDraft=null;
 const defaultSpec={name:'Purchase Request Approval',tasks:[{task_key:'validate',name:'Validate Purchase Request',task_type:'REQUEST_VALIDATION',is_start:true,max_attempts:1},{task_key:'review',name:'Human Approval',task_type:'HUMAN_APPROVAL',is_start:false,max_attempts:null},{task_key:'authorize',name:'Create Purchase Authorization',task_type:'PURCHASE_AUTHORIZATION',is_start:false,max_attempts:2},{task_key:'notify',name:'Record Notification',task_type:'CREATE_NOTIFICATION',is_start:false,max_attempts:1}],transitions:[{from_task_key:'validate',to_task_key:'review',condition:'SUCCESS'},{from_task_key:'validate',to_task_key:'notify',condition:'FAILURE'},{from_task_key:'review',to_task_key:'authorize',condition:'SUCCESS'},{from_task_key:'review',to_task_key:'notify',condition:'FAILURE'},{from_task_key:'authorize',to_task_key:'notify',condition:'SUCCESS'},{from_task_key:'authorize',to_task_key:'notify',condition:'FAILURE'}]};
-async function api(url,options={}){const r=await fetch(url,{headers:{'Content-Type':'application/json',...(options.headers||{})},...options});if(!r.ok){let x;try{x=await r.json()}catch{x={detail:r.statusText}}throw new Error(typeof x.detail==='string'?x.detail:JSON.stringify(x.detail))}return r.status===204?null:r.json()}
+async function api(url,options={}){const r=await fetch(url,{headers:{'Content-Type':'application/json',...(options.headers||{})},...options});if(!r.ok){let x;try{x=await r.json()}catch{x={detail:r.statusText}}throw new Error(formatDetail(x.detail))}return r.status===204?null:r.json()}
+function formatDetail(detail){if(typeof detail==='string')return detail;if(Array.isArray(detail))return detail.map(i=>i&&typeof i==='object'&&i.detail?`• [${i.rule||i.field||'?'}] ${i.detail}`:JSON.stringify(i)).join('\n');return JSON.stringify(detail)}
+function escAttr(s){return String(s??'').replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;')}
 function showRun(run){$('run-id').value=run.run_id;$('run-status').textContent=`Status: ${run.purchase_request_state}\nRequester: ${run.requester_name}\nItem/service: ${run.item_or_service}\nAmount: ${run.amount} ${run.currency}\nNext action: ${run.run_status==='WAITING_FOR_APPROVAL'?'Manager decision required':run.purchase_request_state==='AUTHORIZED'?'No action required':run.purchase_request_state==='NEEDS_MANUAL_ACTION'?'Manual authorization review required':'See result'}\nAuthorization: ${run.purchase_authorization_code||'Not created'}\nNotification: ${run.notification||'Pending'}`;$('trace').innerHTML=run.trace.map(x=>`<tr><td>${x.position}</td><td>${x.kind}</td><td>${x.task_id??''}</td><td>${x.detail??''}</td></tr>`).join('')}
 $('required-date').value=new Date(Date.now()+7*86400000).toISOString().slice(0,10);
 $('request-form').addEventListener('submit',async e=>{e.preventDefault();const data=Object.fromEntries(new FormData(e.target));data.execution_mode=$('execution-mode').value;data.demonstration_scenario=$('scenario').value;try{const run=await api('/api/requests',{method:'POST',body:JSON.stringify(data)});showRun(run);currentWork=run.work_item_id;currentVersion=run.state_version;await loadInbox()}catch(err){$('run-status').textContent=err.message;$('run-status').classList.add('error')}});
-async function loadInbox(){const items=await api('/api/approvals');$('inbox').textContent=items.length?`${items.length} pending request(s)`:'No pending requests.';if(items.length){const x=items[0];currentWork=x.work_item_id;currentVersion=x.state_version;$('approval-context').textContent=`${x.requester_name} requests ${x.item_or_service} from ${x.supplier} for ${x.amount} ${x.currency}. Justification: ${x.business_justification}`;$('decision-panel').classList.remove('hidden')}else $('decision-panel').classList.add('hidden')}
+let inboxItems=[];
+function renderInboxTable(){$('inbox-body').innerHTML=inboxItems.map(x=>`<tr class="${x.work_item_id===currentWork?'selected':''}">`+
+  `<td>${escAttr(x.requester_name)}</td><td>${escAttr(x.item_or_service)}</td><td>${escAttr(x.amount)} ${escAttr(x.currency)}</td>`+
+  `<td><button type="button" class="secondary" onclick="selectApproval('${x.work_item_id}')">Review</button></td></tr>`).join('')}
+function selectApproval(workItemId){const x=inboxItems.find(i=>i.work_item_id===workItemId);if(!x)return;
+  currentWork=x.work_item_id;currentVersion=x.state_version;
+  $('approval-context').textContent=`${x.requester_name} requests ${x.item_or_service} from ${x.supplier} for ${x.amount} ${x.currency}. Justification: ${x.business_justification}`;
+  $('decision-panel').classList.remove('hidden');
+  renderInboxTable()}
+async function loadInbox(){inboxItems=await api('/api/approvals');
+  $('inbox').textContent=inboxItems.length?`${inboxItems.length} pending request(s). Select one to review.`:'No pending requests.';
+  $('inbox-table').classList.toggle('hidden',!inboxItems.length);
+  renderInboxTable();
+  if(inboxItems.length){const keep=inboxItems.find(x=>x.work_item_id===currentWork)||inboxItems[0];selectApproval(keep.work_item_id)}
+  else{currentWork=null;$('decision-panel').classList.add('hidden')}}
 $('refresh-inbox').onclick=()=>loadInbox().catch(e=>$('inbox').textContent=e.message);
-document.querySelectorAll('[data-choice]').forEach(b=>b.onclick=async()=>{const choice=b.dataset.choice,text=$('decision-text').value;const payload={choice,expected_state_version:currentVersion};if(choice==='REJECT')payload.reason=text;else payload.note=text||null;try{const result=await api(`/api/approvals/${currentWork}/decision`,{method:'POST',body:JSON.stringify(payload)});showRun(result.run);await loadInbox()}catch(e){$('inbox').textContent=e.message}});
+document.querySelectorAll('[data-choice]').forEach(b=>b.onclick=async()=>{const choice=b.dataset.choice,text=$('decision-text').value;const payload={choice,expected_state_version:currentVersion};if(choice==='REJECT')payload.reason=text;else payload.note=text||null;try{const result=await api(`/api/approvals/${currentWork}/decision`,{method:'POST',body:JSON.stringify(payload)});showRun(result.run);$('decision-text').value='';await loadInbox()}catch(e){$('inbox').textContent=e.message}});
 $('load-run').onclick=async()=>{try{showRun(await api(`/api/runs/${$('run-id').value}`))}catch(e){$('run-status').textContent=e.message}};
-function spec(){const x=JSON.parse($('workflow-json').value);x.name=$('workflow-name').value;return x}
-function edit(x){currentDraft=x?.id||null;const s=x?{name:x.name,tasks:x.tasks,transitions:x.transitions}:structuredClone(defaultSpec);$('workflow-name').value=s.name;$('workflow-json').value=JSON.stringify(s,null,2)}
+const TASK_TYPES=['REQUEST_VALIDATION','HUMAN_APPROVAL','PURCHASE_AUTHORIZATION','CREATE_NOTIFICATION'];
+const CONDITIONS=['SUCCESS','FAILURE','ALWAYS'];
+function showDesignerResult(text,isError){const el=$('designer-result');el.textContent=text;el.classList.toggle('error',!!isError)}
+function taskRowHtml(t){const isHuman=t.task_type==='HUMAN_APPROVAL';const maxAttempts=t.max_attempts==null?'':t.max_attempts;
+  return `<tr><td><input class="task-key" oninput="refreshTaskKeyList()" value="${escAttr(t.task_key)}" maxlength="64"></td>`+
+    `<td><input class="task-name" value="${escAttr(t.name)}" maxlength="120"></td>`+
+    `<td><select class="task-type" onchange="onTaskTypeChange(this)">${TASK_TYPES.map(v=>`<option value="${v}"${v===t.task_type?' selected':''}>${v}</option>`).join('')}</select></td>`+
+    `<td><input type="radio" name="task-is-start" class="is-start"${t.is_start?' checked':''}></td>`+
+    `<td><input type="number" class="max-attempts" min="1" value="${maxAttempts}"${isHuman?' disabled placeholder="n/a"':''}></td>`+
+    `<td><button type="button" class="secondary" onclick="removeRow(this)">Remove</button></td></tr>`}
+function transitionRowHtml(t){
+  return `<tr><td><input class="from-key" list="task-keys-list" value="${escAttr(t.from_task_key)}" maxlength="64"></td>`+
+    `<td><input class="to-key" list="task-keys-list" value="${escAttr(t.to_task_key)}" maxlength="64"></td>`+
+    `<td><select class="condition">${CONDITIONS.map(c=>`<option value="${c}"${c===t.condition?' selected':''}>${c}</option>`).join('')}</select></td>`+
+    `<td><button type="button" class="secondary" onclick="removeRow(this)">Remove</button></td></tr>`}
+function refreshTaskKeyList(){$('task-keys-list').innerHTML=[...document.querySelectorAll('#tasks-body .task-key')].map(i=>`<option value="${escAttr(i.value)}">`).join('')}
+function onTaskTypeChange(select){const mi=select.closest('tr').querySelector('.max-attempts');mi.disabled=select.value==='HUMAN_APPROVAL';if(mi.disabled)mi.value=''}
+function removeRow(btn){const tr=btn.closest('tr'),wasTask=tr.parentElement.id==='tasks-body';tr.remove();if(wasTask)refreshTaskKeyList()}
+$('add-task').onclick=()=>{$('tasks-body').insertAdjacentHTML('beforeend',taskRowHtml({task_key:'',name:'',task_type:'REQUEST_VALIDATION',is_start:false,max_attempts:1}));refreshTaskKeyList()};
+$('add-transition').onclick=()=>{$('transitions-body').insertAdjacentHTML('beforeend',transitionRowHtml({from_task_key:'',to_task_key:'',condition:'SUCCESS'}))};
+function spec(){
+  const tasks=[...document.querySelectorAll('#tasks-body tr')].map(tr=>({
+    task_key:tr.querySelector('.task-key').value.trim(),
+    name:tr.querySelector('.task-name').value.trim(),
+    task_type:tr.querySelector('.task-type').value,
+    is_start:tr.querySelector('.is-start').checked,
+    max_attempts:tr.querySelector('.max-attempts').value===''?null:Number(tr.querySelector('.max-attempts').value),
+  }));
+  const transitions=[...document.querySelectorAll('#transitions-body tr')].map(tr=>({
+    from_task_key:tr.querySelector('.from-key').value.trim(),
+    to_task_key:tr.querySelector('.to-key').value.trim(),
+    condition:tr.querySelector('.condition').value,
+  }));
+  return {name:$('workflow-name').value,tasks,transitions};
+}
+function edit(x){currentDraft=x?.id||null;const s=x?{name:x.name,tasks:x.tasks,transitions:x.transitions}:structuredClone(defaultSpec);
+  $('workflow-name').value=s.name;
+  $('tasks-body').innerHTML=s.tasks.map(taskRowHtml).join('');
+  $('transitions-body').innerHTML=s.transitions.map(transitionRowHtml).join('');
+  refreshTaskKeyList();
+  showDesignerResult('Load or create a bounded draft.',false);
+}
 async function drafts(){const xs=await api('/api/workflows/drafts');$('drafts').innerHTML=xs.map(x=>`<option value="${x.id}">${x.name} · revision ${x.latest_revision_number||'none'}</option>`).join('');if(xs.length){const x=xs.find(v=>v.id===currentDraft)||xs[0];edit(x)}}
 $('drafts').onchange=async()=>{const xs=await api('/api/workflows/drafts');edit(xs.find(x=>x.id===Number($('drafts').value)))};$('new-draft').onclick=()=>edit(null);
-$('save-draft').onclick=async()=>{try{const x=await api(currentDraft?`/api/workflows/drafts/${currentDraft}`:'/api/workflows/drafts',{method:currentDraft?'PUT':'POST',body:JSON.stringify(spec())});currentDraft=x.id;$('designer-result').textContent='Draft saved.';await drafts()}catch(e){$('designer-result').textContent=e.message}};
-$('validate-draft').onclick=async()=>{try{const x=await api('/api/workflows/validate',{method:'POST',body:JSON.stringify(spec())});$('designer-result').textContent=x.valid?'Definition is valid.':JSON.stringify(x.issues)}catch(e){$('designer-result').textContent=e.message}};
-$('activate-draft').onclick=async()=>{if(!currentDraft)return;$('designer-result').textContent=JSON.stringify(await api(`/api/workflows/drafts/${currentDraft}/activate`,{method:'POST'}));await drafts()};
-edit(null);drafts().catch(e=>$('designer-result').textContent=e.message);loadInbox().catch(()=>{});
+$('save-draft').onclick=async()=>{try{const x=await api(currentDraft?`/api/workflows/drafts/${currentDraft}`:'/api/workflows/drafts',{method:currentDraft?'PUT':'POST',body:JSON.stringify(spec())});currentDraft=x.id;showDesignerResult('Draft saved.',false);await drafts()}catch(e){showDesignerResult(e.message,true)}};
+$('validate-draft').onclick=async()=>{try{const x=await api('/api/workflows/validate',{method:'POST',body:JSON.stringify(spec())});showDesignerResult(x.valid?'Definition is valid.':`Definition is invalid:\n${x.issues.map(i=>`• [${i.rule}] ${i.detail}`).join('\n')}`,!x.valid)}catch(e){showDesignerResult(e.message,true)}};
+$('activate-draft').onclick=async()=>{if(!currentDraft){showDesignerResult('Save the draft before activating.',true);return}try{const x=await api(`/api/workflows/drafts/${currentDraft}/activate`,{method:'POST'});showDesignerResult(`Revision ${x.revision_number} activated.`,false);await drafts()}catch(e){showDesignerResult(e.message,true)}};
+edit(null);drafts().catch(e=>showDesignerResult(e.message,true));loadInbox().catch(()=>{});
+const deepLinkRun=new URLSearchParams(location.search).get('run');
+if(deepLinkRun)api(`/api/runs/${deepLinkRun}`).then(run=>{showRun(run);$('trace-details').open=true}).catch(e=>{$('run-status').textContent=e.message;$('run-status').classList.add('error')});
 </script></body></html>
