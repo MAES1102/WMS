@@ -11,7 +11,6 @@ from app.application.approval import (
     ApprovalDecisionConflict,
     ApprovalNotFound,
     ApprovalQueryService,
-    HumanApprovalService,
 )
 from app.application.errors import StateVersionConflict, StepStateError
 from app.application.orchestration import (
@@ -32,14 +31,11 @@ class ApprovalDecisionPayload(BaseModel):
 
 
 def create_approval_router(
-    service_dependency: Callable[..., HumanApprovalService],
     query_dependency: Callable[..., ApprovalQueryService],
-    coordinator_dependency: Callable[..., PurchaseRequestExecutionCoordinator] | None = None,
-    run_query_dependency: Callable[..., PurchaseRequestRunQueryService] | None = None,
+    coordinator_dependency: Callable[..., PurchaseRequestExecutionCoordinator],
+    run_query_dependency: Callable[..., PurchaseRequestRunQueryService],
 ) -> APIRouter:
     router = APIRouter(prefix="/api/approvals", tags=["approvals"])
-    coordinator_provider = coordinator_dependency or (lambda: None)
-    run_query_provider = run_query_dependency or (lambda: None)
 
     @router.get("")
     def list_pending(
@@ -61,13 +57,8 @@ def create_approval_router(
     def decide(
         work_item_id: str,
         payload: ApprovalDecisionPayload,
-        service: HumanApprovalService = Depends(service_dependency),
-        coordinator: PurchaseRequestExecutionCoordinator | None = Depends(
-            coordinator_provider
-        ),
-        run_queries: PurchaseRequestRunQueryService | None = Depends(
-            run_query_provider
-        ),
+        coordinator: PurchaseRequestExecutionCoordinator = Depends(coordinator_dependency),
+        run_queries: PurchaseRequestRunQueryService = Depends(run_query_dependency),
     ) -> dict:
         try:
             value = ApprovalDecisionInput(
@@ -75,21 +66,13 @@ def create_approval_router(
                 note=payload.note,
                 reason=payload.reason,
             )
-            if coordinator is None:
-                accepted = service.decide(
-                    work_item_id,
-                    value,
-                    expected_state_version=payload.expected_state_version,
-                )
-                execution = None
-            else:
-                resumed = coordinator.decide_and_resume(
-                    work_item_id,
-                    value,
-                    expected_state_version=payload.expected_state_version,
-                )
-                accepted = resumed.decision
-                execution = resumed.execution
+            resumed = coordinator.decide_and_resume(
+                work_item_id,
+                value,
+                expected_state_version=payload.expected_state_version,
+            )
+            accepted = resumed.decision
+            execution = resumed.execution
         except ApprovalNotFound as exc:
             raise HTTPException(status.HTTP_404_NOT_FOUND, str(exc)) from exc
         except ApprovalDecisionError as exc:
@@ -99,23 +82,15 @@ def create_approval_router(
             ) from exc
         except (ApprovalDecisionConflict, StateVersionConflict, StepStateError) as exc:
             raise HTTPException(status.HTTP_409_CONFLICT, str(exc)) from exc
-        response = {
+        return {
             "work_item_id": accepted.work_item_id,
             "run_id": accepted.run_id,
             "outcome": accepted.outcome.value,
             "state_version": accepted.committed_state_version,
             "replayed": accepted.replayed,
             "resume_required": not accepted.replayed,
+            "execution_phase": execution.phase.value,
+            "run": jsonable_encoder(asdict(run_queries.get(accepted.run_id))),
         }
-        if execution is not None:
-            if run_queries is None:
-                raise RuntimeError(
-                    "A run query dependency is required with the coordinator"
-                )
-            response["execution_phase"] = execution.phase.value
-            response["run"] = jsonable_encoder(
-                asdict(run_queries.get(accepted.run_id))
-            )
-        return response
 
     return router

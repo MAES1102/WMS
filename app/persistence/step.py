@@ -3,7 +3,8 @@
 from collections.abc import Callable
 from uuid import uuid4
 
-from sqlalchemy import func, select, update
+from sqlalchemy import func, select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.application.errors import StateVersionConflict, StepStateError
@@ -23,13 +24,16 @@ from app.application.ports import (
 )
 from app.domain.purchase_request import PurchaseRequestState, RawPurchaseRequest
 from app.domain.types import (
-    TaskDefinition,
-    TaskType,
     TerminalDecision,
     TerminalReached,
-    TransitionCondition,
-    TransitionDefinition,
     TransitionSelected,
+)
+from app.persistence._shared import (
+    apply_version_gated_cursor_update,
+    build_task_definition,
+    format_trace_detail,
+    next_trace_position,
+    query_transitions,
 )
 from app.persistence.models import (
     PurchaseAuthorization,
@@ -74,14 +78,6 @@ class SqlAlchemyAutomaticStepUnitOfWork:
             raise StepStateError(
                 "Execution cursor does not reference a task in the run revision"
             )
-        transitions = self._session.scalars(
-            select(RevisionTransition)
-            .where(
-                RevisionTransition.revision_id == run.revision_id,
-                RevisionTransition.from_task_id == task.id,
-            )
-            .order_by(RevisionTransition.id)
-        ).all()
         completed_attempts = self._session.scalar(
             select(func.count())
             .select_from(PurchaseRequestTaskAttempt)
@@ -93,22 +89,8 @@ class SqlAlchemyAutomaticStepUnitOfWork:
         return ReadyAutomaticStep(
             run_id=run.id,
             purchase_request_id=run.purchase_request_id,
-            task=TaskDefinition(
-                id=task.id,
-                name=task.name,
-                task_type=TaskType(task.task_type),
-                is_start=task.is_start,
-                max_attempts=task.max_attempts,
-            ),
-            transitions=tuple(
-                TransitionDefinition(
-                    id=transition.id,
-                    from_task_id=transition.from_task_id,
-                    to_task_id=transition.to_task_id,
-                    condition=TransitionCondition(transition.condition),
-                )
-                for transition in transitions
-            ),
+            task=build_task_definition(task),
+            transitions=query_transitions(self._session, run.revision_id, task.id),
             completed_attempts=int(completed_attempts or 0),
             state_version=cursor.state_version,
         )
@@ -163,6 +145,11 @@ class SqlAlchemyAutomaticStepUnitOfWork:
         try:
             self._commit_automatic_step(command)
             self._session.commit()
+        except IntegrityError as exc:
+            self._session.rollback()
+            raise StateVersionConflict(
+                "Automatic step attempt or cursor was concurrently committed"
+            ) from exc
         except BaseException:
             self._session.rollback()
             raise
@@ -207,27 +194,23 @@ class SqlAlchemyAutomaticStepUnitOfWork:
             task,
             command,
         )
-        cursor_update = self._session.execute(
-            update(ExecutionCursor)
-            .where(
-                ExecutionCursor.run_id == command.run_id,
-                ExecutionCursor.state_version == command.expected_state_version,
-                ExecutionCursor.phase == "READY",
-                ExecutionCursor.current_task_id == command.task_id,
-            )
-            .values(
-                current_task_id=next_task_id,
-                phase=phase,
-                state_version=command.next_state_version,
-                terminal_decision=terminal,
-            )
-            .execution_options(synchronize_session=False)
-        )
-        if cursor_update.rowcount != 1:
-            raise StateVersionConflict(
+        apply_version_gated_cursor_update(
+            self._session,
+            run_id=command.run_id,
+            expected_version=command.expected_state_version,
+            required_phase="READY",
+            required_task_id=command.task_id,
+            values={
+                "current_task_id": next_task_id,
+                "phase": phase,
+                "state_version": command.next_state_version,
+                "terminal_decision": terminal,
+            },
+            conflict_message=(
                 f"Expected state version {command.expected_state_version} "
                 f"for run {command.run_id!r}"
-            )
+            ),
+        )
 
         self._session.add(
             PurchaseRequestTaskAttempt(
@@ -344,14 +327,7 @@ class SqlAlchemyAutomaticStepUnitOfWork:
                 raise TypeError(f"Unsupported automatic step effect {effect!r}")
 
     def _append_trace(self, command: AutomaticStepCommit) -> None:
-        last_position = int(
-            self._session.scalar(
-                select(func.max(PurchaseRequestTraceEntry.position)).where(
-                    PurchaseRequestTraceEntry.run_id == command.run_id
-                )
-            )
-            or 0
-        )
+        last_position = next_trace_position(self._session, command.run_id)
         entries: list[PurchaseRequestTraceEntry] = []
         for offset, observation in enumerate(command.trace, start=1):
             if (
@@ -359,14 +335,6 @@ class SqlAlchemyAutomaticStepUnitOfWork:
                 or observation.attempt_ordinal != command.attempt_ordinal
             ):
                 raise StepStateError("Trace observation does not match its attempt")
-            detail = observation.detail
-            if observation.transition_id is not None:
-                transition_detail = f"transition_id={observation.transition_id}"
-                detail = (
-                    f"{detail}; {transition_detail}"
-                    if detail
-                    else transition_detail
-                )
             entries.append(
                 PurchaseRequestTraceEntry(
                     run_id=command.run_id,
@@ -374,7 +342,7 @@ class SqlAlchemyAutomaticStepUnitOfWork:
                     observation_kind=observation.kind.value,
                     task_id=observation.task_id,
                     attempt_ordinal=observation.attempt_ordinal,
-                    detail=detail,
+                    detail=format_trace_detail(observation.detail, observation.transition_id),
                     timestamp=command.finished_at,
                 )
             )

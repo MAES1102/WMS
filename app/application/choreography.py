@@ -10,6 +10,7 @@ from app.application.orchestration import (
     CursorPhase,
     RunControlReader,
     RunControlState,
+    validate_control_state,
 )
 from app.application.step_service import AutomaticStepService
 from app.domain.types import ExecutionMode, TaskType, TerminalDecision
@@ -69,7 +70,12 @@ class PurchaseRequestChoreographer:
 
     def drive(self, run_id: str) -> ChoreographyResult:
         initial = self._state_reader.load_control_state(run_id)
-        self._validate_state(initial, run_id)
+        validate_control_state(
+            initial,
+            run_id,
+            expected_mode=ExecutionMode.CHOREOGRAPHY,
+            driver_name="PurchaseRequestChoreographer",
+        )
         if initial.phase is not CursorPhase.READY:
             return self._result_from_state(initial, committed_steps=0)
 
@@ -82,7 +88,12 @@ class PurchaseRequestChoreographer:
                 raise StepStateError("Advance event belongs to a different run")
 
             state = self._state_reader.load_control_state(run_id)
-            self._validate_state(state, run_id)
+            validate_control_state(
+                state,
+                run_id,
+                expected_mode=ExecutionMode.CHOREOGRAPHY,
+                driver_name="PurchaseRequestChoreographer",
+            )
             if state.state_version != event.expected_state_version:
                 raise StateVersionConflict(
                     f"Expected state version {event.expected_state_version}, "
@@ -131,29 +142,6 @@ class PurchaseRequestChoreographer:
             return final
         finally:
             self._event_bus.unsubscribe(run_id, advance)
-
-    @staticmethod
-    def _validate_state(state: RunControlState, requested_run_id: str) -> None:
-        if state.run_id != requested_run_id:
-            raise StepStateError("Control state belongs to a different run")
-        if state.mode is not ExecutionMode.CHOREOGRAPHY:
-            raise StepStateError(
-                "PurchaseRequestChoreographer can drive only choreography runs"
-            )
-        if state.state_version < 1:
-            raise StepStateError("Control state_version must be positive")
-        if state.phase is CursorPhase.READY and state.task_type is None:
-            raise StepStateError("Ready cursor has no current task type")
-        if (
-            state.phase is CursorPhase.WAITING_FOR_APPROVAL
-            and state.work_item_id is None
-        ):
-            raise StepStateError("Waiting cursor has no approval work item")
-        if (
-            state.phase is CursorPhase.TERMINAL
-            and state.terminal_decision is None
-        ):
-            raise StepStateError("Terminal cursor has no terminal decision")
 
     @staticmethod
     def _result_from_state(

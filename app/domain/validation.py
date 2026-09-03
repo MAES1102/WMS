@@ -22,7 +22,7 @@ class WorkflowDefinitionError(Exception):
 
 
 def validate_workflow_definition(defn: WorkflowDefinition) -> None:
-    """Validate all definition rules before run state can be created (FR-006)."""
+    """Validate all definition rules before run state can be created."""
     issues: list[ValidationIssue] = []
     task_ids = {task.id for task in defn.tasks}
 

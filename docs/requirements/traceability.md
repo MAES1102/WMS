@@ -34,7 +34,7 @@ This record maps requirement groups to product components and verification evide
 | `NFR-006`, `NFR-008` | One local service with no broker or external business system | Docker inventory and local adapters | deployment/source/dependency inspections |
 | `NFR-007` | Isolation and concurrency protection | run keys, unique constraints, state versions | threaded partitions and decision-conflict tests |
 | `NFR-009` | Complete structured field validation before approval | Purchase Request domain validator | field-boundary and invalid-request cases |
-| `NFR-010` | Responsive local status reads | query-only persistent projection | timed local query matrix |
+| `NFR-010` | Responsive local status reads | query-only persistent projection | timed local query matrix (`tests/presentation/test_status_read_performance.py`) |
 | `NFR-011` | Business state is primary in the UI | purchase request status panel | UI content inspection |
 
 ## Five business scenarios

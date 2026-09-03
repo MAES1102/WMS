@@ -10,7 +10,7 @@ def should_retry(
     completed_attempts: int,
     max_attempts: int | None,
 ) -> bool:
-    """Return whether the current automatic task must run again (FR-022)."""
+    """Return whether the current automatic task must run again."""
     try:
         normalized_type = TaskType(task_type)
     except (TypeError, ValueError) as exc:

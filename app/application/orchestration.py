@@ -44,6 +44,34 @@ class RunControlReader(Protocol):
         """Load the committed cursor state used for the next control decision."""
 
 
+def validate_control_state(
+    state: RunControlState,
+    requested_run_id: str,
+    *,
+    expected_mode: ExecutionMode,
+    driver_name: str,
+) -> None:
+    """Shared control-state invariants for both the orchestrator and the choreographer."""
+    if state.run_id != requested_run_id:
+        raise StepStateError("Control state belongs to a different run")
+    if state.mode is not expected_mode:
+        raise StepStateError(f"{driver_name} can drive only {expected_mode.value} runs")
+    if state.state_version < 1:
+        raise StepStateError("Control state_version must be positive")
+    if state.phase is CursorPhase.READY and state.task_type is None:
+        raise StepStateError("Ready cursor has no current task type")
+    if (
+        state.phase is CursorPhase.WAITING_FOR_APPROVAL
+        and state.work_item_id is None
+    ):
+        raise StepStateError("Waiting cursor has no approval work item")
+    if (
+        state.phase is CursorPhase.TERMINAL
+        and state.terminal_decision is None
+    ):
+        raise StepStateError("Terminal cursor has no terminal decision")
+
+
 @dataclass(frozen=True)
 class OrchestrationResult:
     run_id: str
@@ -76,7 +104,12 @@ class PurchaseRequestOrchestrator:
         committed_steps = 0
         while committed_steps < self._max_committed_steps:
             state = self._state_reader.load_control_state(run_id)
-            self._validate_state(state, run_id)
+            validate_control_state(
+                state,
+                run_id,
+                expected_mode=ExecutionMode.ORCHESTRATION,
+                driver_name="PurchaseRequestOrchestrator",
+            )
 
             if state.phase is CursorPhase.TERMINAL:
                 return OrchestrationResult(
@@ -117,30 +150,6 @@ class PurchaseRequestOrchestrator:
         raise StepStateError(
             f"Orchestration safety bound {self._max_committed_steps} exceeded"
         )
-
-    @staticmethod
-    def _validate_state(state: RunControlState, requested_run_id: str) -> None:
-        if state.run_id != requested_run_id:
-            raise StepStateError("Control state belongs to a different run")
-        if state.mode is not ExecutionMode.ORCHESTRATION:
-            raise StepStateError(
-                "PurchaseRequestOrchestrator can drive only orchestration runs"
-            )
-        if state.state_version < 1:
-            raise StepStateError("Control state_version must be positive")
-        if state.phase is CursorPhase.READY and state.task_type is None:
-            raise StepStateError("Ready cursor has no current task type")
-        if (
-            state.phase is CursorPhase.WAITING_FOR_APPROVAL
-            and state.work_item_id is None
-        ):
-            raise StepStateError("Waiting cursor has no approval work item")
-        if (
-            state.phase is CursorPhase.TERMINAL
-            and state.terminal_decision is None
-        ):
-            raise StepStateError("Terminal cursor has no terminal decision")
-
 
 @dataclass(frozen=True)
 class OrchestratedDecisionResult:

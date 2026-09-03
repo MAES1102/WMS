@@ -5,7 +5,7 @@ from enum import Enum
 
 
 class TransitionCondition(str, Enum):
-    """Accepted transition condition labels (FR-007)."""
+    """Accepted transition condition labels."""
 
     SUCCESS = "SUCCESS"
     FAILURE = "FAILURE"
@@ -33,7 +33,7 @@ class DemoScenario(str, Enum):
 
 
 class TaskType(str, Enum):
-    """Closed task catalog for the purchase_request reference workflow (FR-049)."""
+    """Closed task catalog for the purchase_request reference workflow."""
 
     REQUEST_VALIDATION = "REQUEST_VALIDATION"
     HUMAN_APPROVAL = "HUMAN_APPROVAL"
@@ -54,7 +54,7 @@ class FailureClass(str, Enum):
 
 
 class TerminalDecision(str, Enum):
-    """Terminal classification produced by the resolver (FR-011/012)."""
+    """Terminal classification produced by the resolver."""
 
     SUCCESSFUL_TERMINAL = "SUCCESSFUL_TERMINAL"
     UNSUCCESSFUL_TERMINAL = "UNSUCCESSFUL_TERMINAL"
@@ -62,7 +62,7 @@ class TerminalDecision(str, Enum):
 
 @dataclass(frozen=True)
 class TaskDefinition:
-    """Immutable task-definition data (CON-004)."""
+    """Immutable task-definition data."""
 
     id: int
     name: str

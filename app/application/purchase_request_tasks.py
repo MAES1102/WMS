@@ -4,7 +4,7 @@ from dataclasses import dataclass
 from typing import Protocol
 from uuid import uuid4
 
-from app.application.ports import AutomaticStepEffectPolicy, ExecutionContext, InternalNotificationCreated, PurchaseAuthorizationCreated, PurchaseRequestStateChanged, RetryCurrentTask, StepEffect, StepResolution
+from app.application.ports import ExecutionContext, InternalNotificationCreated, PurchaseAuthorizationCreated, PurchaseRequestStateChanged, RetryCurrentTask, StepEffect, StepResolution
 from app.domain.purchase_request import PurchaseRequestState
 from app.domain.types import FailureClass, TaskOutcome, TaskResult, TaskType
 
@@ -66,11 +66,3 @@ class PurchaseRequestBusinessEffectPolicy:
             }
             return (InternalNotificationCreated(messages[value.state]),)
         return ()
-
-
-class CompositeAutomaticStepEffectPolicy:
-    def __init__(self, policies: tuple[AutomaticStepEffectPolicy, ...]) -> None:
-        self._policies = policies
-
-    def effects_for(self, context: ExecutionContext, result: TaskResult, resolution: StepResolution | None = None) -> tuple[StepEffect, ...]:
-        return tuple(effect for policy in self._policies for effect in policy.effects_for(context, result, resolution))

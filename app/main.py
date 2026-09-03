@@ -11,7 +11,6 @@ from app.presentation.runtime_api import create_runtime_router
 from app.presentation.submission_api import create_submission_router
 from app.runtime import (
     get_approval_queries,
-    get_approval_service,
     get_constructor_service,
     get_execution_coordinator,
     get_run_queries,
@@ -36,7 +35,6 @@ app.include_router(
 )
 app.include_router(
     create_approval_router(
-        get_approval_service,
         get_approval_queries,
         coordinator_dependency=get_execution_coordinator,
         run_query_dependency=get_run_queries,

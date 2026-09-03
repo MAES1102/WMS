@@ -5,21 +5,21 @@ skinparam backgroundColor white
 skinparam defaultFontName Helvetica
 skinparam defaultFontSize 13
 skinparam roundcorner 10
-skinparam ArrowColor #326d91
+skinparam ArrowColor #2d7a5c
 skinparam ArrowThickness 1.3
-skinparam titleFontColor #12395b
+skinparam titleFontColor #163d2e
 skinparam titleFontSize 16
 skinparam titleFontStyle bold
 skinparam activity {
-  BackgroundColor #e9f1f6
-  BorderColor #1d567d
-  FontColor #12395b
+  BackgroundColor #e8f2ec
+  BorderColor #1f5c44
+  FontColor #163d2e
   DiamondBackgroundColor #fdf3e0
   DiamondBorderColor #c9a227
   DiamondFontColor #5a4600
   StartColor #176b50
   EndColor #ad3026
-  ArrowColor #326d91
+  ArrowColor #2d7a5c
   ArrowFontColor #17212b
 }
 skinparam note {

@@ -17,7 +17,6 @@ from app.application.executors import (
 )
 from app.application.purchase_request_tasks import (
     PurchaseAuthorizationExecutor,
-    CompositeAutomaticStepEffectPolicy,
     CreateNotificationExecutor,
     PurchaseRequestBusinessEffectPolicy,
 )
@@ -30,9 +29,10 @@ from app.application.orchestration import (
     PurchaseRequestOrchestrator,
     PurchaseRequestRunQueryService,
 )
+from app.application.ports import ExecutionContext, StepEffect, StepResolution
 from app.application.step_service import AutomaticStepService
 from app.application.submission import PurchaseRequestSubmissionService
-from app.domain.types import DemoScenario, TaskType
+from app.domain.types import DemoScenario, TaskResult, TaskType
 from app.infrastructure.event_bus import InMemoryRunEventBus
 from app.persistence.approval import (
     SqlAlchemyApprovalQueryService,
@@ -97,12 +97,6 @@ def get_submission_service(
     return PurchaseRequestSubmissionService(SqlAlchemySubmissionUnitOfWork(db))
 
 
-def get_approval_service(
-    db: Session = Depends(get_purchase_request_db),
-) -> HumanApprovalService:
-    return HumanApprovalService(SqlAlchemyApprovalUnitOfWork(db))
-
-
 def get_approval_queries(
     db: Session = Depends(get_purchase_request_db),
 ) -> SqlAlchemyApprovalQueryService:
@@ -121,6 +115,28 @@ def get_constructor_service(
     return WorkflowConstructorService(
         SqlAlchemyWorkflowConstructorRepository(db)
     )
+
+
+class _PurchaseRequestStepEffects:
+    """Validation effects, then business effects, for one purchase_request step."""
+
+    def __init__(
+        self,
+        validation: PurchaseRequestValidationEffectPolicy,
+        business: PurchaseRequestBusinessEffectPolicy,
+    ) -> None:
+        self._validation = validation
+        self._business = business
+
+    def effects_for(
+        self,
+        context: ExecutionContext,
+        result: TaskResult,
+        resolution: StepResolution | None = None,
+    ) -> tuple[StepEffect, ...]:
+        return self._validation.effects_for(
+            context, result, resolution
+        ) + self._business.effects_for(context, result, resolution)
 
 
 def get_execution_coordinator(
@@ -147,11 +163,9 @@ def get_execution_coordinator(
     automatic_steps = AutomaticStepService(
         step_uow,
         registry,
-        effect_policy=CompositeAutomaticStepEffectPolicy(
-            (
-                PurchaseRequestValidationEffectPolicy(step_uow),
-                PurchaseRequestBusinessEffectPolicy(step_uow),
-            )
+        effect_policy=_PurchaseRequestStepEffects(
+            PurchaseRequestValidationEffectPolicy(step_uow),
+            PurchaseRequestBusinessEffectPolicy(step_uow),
         ),
     )
     approvals = HumanApprovalService(SqlAlchemyApprovalUnitOfWork(db))

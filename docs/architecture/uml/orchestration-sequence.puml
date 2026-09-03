@@ -6,21 +6,21 @@ skinparam backgroundColor white
 skinparam defaultFontName Helvetica
 skinparam defaultFontSize 13
 skinparam roundcorner 10
-skinparam ArrowColor #326d91
+skinparam ArrowColor #2d7a5c
 skinparam ArrowThickness 1.3
-skinparam titleFontColor #12395b
+skinparam titleFontColor #163d2e
 skinparam titleFontSize 16
 skinparam titleFontStyle bold
 skinparam sequence {
-  ActorBackgroundColor #e9f1f6
-  ActorBorderColor #1d567d
-  ParticipantBackgroundColor #e9f1f6
-  ParticipantBorderColor #1d567d
-  ParticipantFontColor #12395b
+  ActorBackgroundColor #e8f2ec
+  ActorBorderColor #1f5c44
+  ParticipantBackgroundColor #e8f2ec
+  ParticipantBorderColor #1f5c44
+  ParticipantFontColor #163d2e
   LifeLineBorderColor #9eabb7
   LifeLineBackgroundColor #f4f6f8
-  DatabaseBackgroundColor #d7e6ef
-  DatabaseBorderColor #1d567d
+  DatabaseBackgroundColor #d9ede3
+  DatabaseBorderColor #1f5c44
   GroupBackgroundColor #fdf3e0
   GroupBorderColor #c9a227
   GroupFontColor #5a4600
