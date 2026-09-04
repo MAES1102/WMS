@@ -41,3 +41,4 @@ plantuml.jar
 historical-scratch/
 *.log
 *.tmp
+.claude/
