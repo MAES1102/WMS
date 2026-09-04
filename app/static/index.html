@@ -73,7 +73,7 @@ document.querySelectorAll('[data-choice]').forEach(b=>b.onclick=async()=>{const 
 $('load-run').onclick=async()=>{try{showRun(await api(`/api/runs/${$('run-id').value}`))}catch(e){$('run-status').textContent=e.message}};
 const TASK_TYPES=['REQUEST_VALIDATION','HUMAN_APPROVAL','PURCHASE_AUTHORIZATION','CREATE_NOTIFICATION'];
 const CONDITIONS=['SUCCESS','FAILURE','ALWAYS'];
-function showDesignerResult(text,isError){const el=$('designer-result');el.textContent=text;el.classList.toggle('error',!!isError)}
+function showDesignerResult(text,isError){const el=$('designer-result');el.textContent=text;el.classList.toggle('error',!!isError);el.scrollIntoView({behavior:'smooth',block:'nearest'})}
 function taskRowHtml(t){const isHuman=t.task_type==='HUMAN_APPROVAL';const maxAttempts=t.max_attempts==null?'':t.max_attempts;
   return `<tr><td><input class="task-key" oninput="refreshTaskKeyList()" value="${escAttr(t.task_key)}" maxlength="64"></td>`+
     `<td><input class="task-name" value="${escAttr(t.name)}" maxlength="120"></td>`+
@@ -111,14 +111,14 @@ function edit(x){currentDraft=x?.id||null;const s=x?{name:x.name,tasks:x.tasks,t
   $('tasks-body').innerHTML=s.tasks.map(taskRowHtml).join('');
   $('transitions-body').innerHTML=s.transitions.map(transitionRowHtml).join('');
   refreshTaskKeyList();
-  showDesignerResult('Load or create a bounded draft.',false);
 }
 async function drafts(){const xs=await api('/api/workflows/drafts');$('drafts').innerHTML=xs.map(x=>`<option value="${x.id}">${x.name} · revision ${x.latest_revision_number||'none'}</option>`).join('');if(xs.length){const x=xs.find(v=>v.id===currentDraft)||xs[0];edit(x)}}
-$('drafts').onchange=async()=>{const xs=await api('/api/workflows/drafts');edit(xs.find(x=>x.id===Number($('drafts').value)))};$('new-draft').onclick=()=>edit(null);
-$('save-draft').onclick=async()=>{try{const x=await api(currentDraft?`/api/workflows/drafts/${currentDraft}`:'/api/workflows/drafts',{method:currentDraft?'PUT':'POST',body:JSON.stringify(spec())});currentDraft=x.id;showDesignerResult('Draft saved.',false);await drafts()}catch(e){showDesignerResult(e.message,true)}};
+$('drafts').onchange=async()=>{const xs=await api('/api/workflows/drafts');edit(xs.find(x=>x.id===Number($('drafts').value)));showDesignerResult('Loaded existing draft.',false)};
+$('new-draft').onclick=()=>{edit({name:'Untitled workflow',tasks:[],transitions:[]});showDesignerResult('New blank draft — not yet saved.',false)};
+$('save-draft').onclick=async()=>{try{const x=await api(currentDraft?`/api/workflows/drafts/${currentDraft}`:'/api/workflows/drafts',{method:currentDraft?'PUT':'POST',body:JSON.stringify(spec())});currentDraft=x.id;await drafts();showDesignerResult('Draft saved.',false)}catch(e){showDesignerResult(e.message,true)}};
 $('validate-draft').onclick=async()=>{try{const x=await api('/api/workflows/validate',{method:'POST',body:JSON.stringify(spec())});showDesignerResult(x.valid?'Definition is valid.':`Definition is invalid:\n${x.issues.map(i=>`• [${i.rule}] ${i.detail}`).join('\n')}`,!x.valid)}catch(e){showDesignerResult(e.message,true)}};
-$('activate-draft').onclick=async()=>{if(!currentDraft){showDesignerResult('Save the draft before activating.',true);return}try{const x=await api(`/api/workflows/drafts/${currentDraft}/activate`,{method:'POST'});showDesignerResult(`Revision ${x.revision_number} activated.`,false);await drafts()}catch(e){showDesignerResult(e.message,true)}};
-edit(null);drafts().catch(e=>showDesignerResult(e.message,true));loadInbox().catch(()=>{});
+$('activate-draft').onclick=async()=>{if(!currentDraft){showDesignerResult('Save the draft before activating.',true);return}try{const x=await api(`/api/workflows/drafts/${currentDraft}/activate`,{method:'POST'});await drafts();showDesignerResult(`Revision ${x.revision_number} activated.`,false)}catch(e){showDesignerResult(e.message,true)}};
+edit(null);showDesignerResult('Load or create a bounded draft.',false);drafts().catch(e=>showDesignerResult(e.message,true));loadInbox().catch(()=>{});
 const deepLinkRun=new URLSearchParams(location.search).get('run');
 if(deepLinkRun)api(`/api/runs/${deepLinkRun}`).then(run=>{showRun(run);$('trace-details').open=true}).catch(e=>{$('run-status').textContent=e.message;$('run-status').classList.add('error')});
 </script></body></html>

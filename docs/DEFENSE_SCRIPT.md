@@ -42,7 +42,7 @@ Run or show the equivalent choreography case. Both modes use the same revision, 
 
 ### 9. Custom logic and architecture (60 seconds)
 
-Show the activity, component, and sequence diagrams. The custom logic includes graph validation, deterministic transition resolution, bounded retry, persistent cursor and wait/resume, idempotent approval decisions with conflict detection, immutable revisions, run isolation, ordered trace, and the two control strategies. The deployment is one modular FastAPI application with one SQLite database. The final unchanged suite reports **98 passed**.
+Show the activity, component, and sequence diagrams. The custom logic includes graph validation, deterministic transition resolution, bounded retry, persistent cursor and wait/resume, idempotent approval decisions with conflict detection, immutable revisions, run isolation, ordered trace, and the two control strategies. The deployment is one modular FastAPI application with one SQLite database. The final unchanged suite reports **99 passed**.
 
 ### 10. Limitations and close (40 seconds)
 
@@ -65,7 +65,7 @@ Closing sentence: The engineering contribution is controlled workflow behavior a
 | What is configurable? | Safe task definitions and transitions inside a closed four-type catalog; activated revisions are immutable. | Workflow Designer and constructor tests. |
 | What is genuinely custom? | Validator, resolver integration, retry order, cursor lifecycle, approval semantics, isolation, trace, and both control strategies. | Source-to-test traceability table. |
 | How is failure demonstrated? | An explicit deterministic adapter produces standard, retry-then-success, or exhausted authorization behavior. | Demonstration Controls and retry tests. |
-| Why only 98 tests? | That is the exact collected and passing repository suite after final consolidation; quality is reported by coverage categories and scenarios, not inflated counts. | Cache-suppressed pytest output. |
+| Why only 99 tests? | That is the exact collected and passing repository suite after final consolidation; quality is reported by coverage categories and scenarios, not inflated counts. | Cache-suppressed pytest output. |
 | What would come next? | Authentication/RBAC, external procurement adapters, durable messaging only if distribution is required, and measured usability/security work. | Limitations and future-work section. |
 
 ## Statements to avoid
@@ -75,7 +75,7 @@ Closing sentence: The engineering contribution is controlled workflow behavior a
 - Do not claim production deployment, performance, scalability, penetration testing, or user-research results.
 - Do not claim the professor approved Purchase Request Approval or every architecture choice.
 - Do not call the Workflow Designer a general low-code or BPMN platform.
-- Do not quote any test count other than the current verified **98 passed**.
+- Do not quote any test count other than the current verified **99 passed**.
 - Do not describe demonstration failures as real third-party failures.
 
 ## Evidence checklist
@@ -84,7 +84,7 @@ Closing sentence: The engineering contribution is controlled workflow behavior a
 - Authorized run and Purchase Authorization identifier.
 - Retry observation and attempt sequence.
 - Current UML SVGs.
-- `98 passed` output from the unchanged suite.
+- `99 passed` output from the unchanged suite.
 - Restart tests for both modes.
 - OpenAPI route list and single-service Compose validation.
 - Final report, CR-003, reuse disclosure, and limitations.
