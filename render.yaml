@@ -1,0 +1,12 @@
+services:
+  - type: web
+    name: workflow-management-system
+    runtime: docker
+    dockerfilePath: ./Dockerfile
+    plan: free
+    healthCheckPath: /
+    envVars:
+      - key: PYTHONDONTWRITEBYTECODE
+        value: "1"
+      - key: WORKFLOW_DATABASE_URL
+        value: sqlite:////data/workflow.db
