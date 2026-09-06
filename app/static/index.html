@@ -112,7 +112,7 @@ function edit(x){currentDraft=x?.id||null;const s=x?{name:x.name,tasks:x.tasks,t
   $('transitions-body').innerHTML=s.transitions.map(transitionRowHtml).join('');
   refreshTaskKeyList();
 }
-async function drafts(){const xs=await api('/api/workflows/drafts');$('drafts').innerHTML=xs.map(x=>`<option value="${x.id}">${x.name} · revision ${x.latest_revision_number||'none'}</option>`).join('');if(xs.length){const x=xs.find(v=>v.id===currentDraft)||xs[0];edit(x)}}
+async function drafts(){const xs=await api('/api/workflows/drafts');$('drafts').innerHTML=xs.map(x=>`<option value="${x.id}">${x.name} · revision ${x.latest_revision_number||'none'}</option>`).join('');if(xs.length){const x=xs.find(v=>v.id===currentDraft)||xs[0];$('drafts').value=x.id;edit(x)}}
 $('drafts').onchange=async()=>{const xs=await api('/api/workflows/drafts');edit(xs.find(x=>x.id===Number($('drafts').value)));showDesignerResult('Loaded existing draft.',false)};
 $('new-draft').onclick=()=>{edit({name:'Untitled workflow',tasks:[],transitions:[]});showDesignerResult('New blank draft — not yet saved.',false)};
 $('save-draft').onclick=async()=>{try{const x=await api(currentDraft?`/api/workflows/drafts/${currentDraft}`:'/api/workflows/drafts',{method:currentDraft?'PUT':'POST',body:JSON.stringify(spec())});currentDraft=x.id;await drafts();showDesignerResult('Draft saved.',false)}catch(e){showDesignerResult(e.message,true)}};
